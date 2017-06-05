@@ -14,4 +14,29 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="basecamera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kincam.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pgcam.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="h5out.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="streamer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="basesaver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

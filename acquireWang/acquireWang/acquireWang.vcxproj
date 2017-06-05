@@ -103,13 +103,27 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\include;..\..\include;C:\Program Files\Point Grey Research\Spinnaker\include;..\..\glfw\include;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4710</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\bin;C:\Program Files\HDF_Group\HDF5\1.8.17\lib;C:\Apps\glfw-3.2.bin.WIN64\lib-vc2015;C:\Program Files\Point Grey Research\Spinnaker\lib64;C:\Program Files\Point Grey Research\Spinnaker\lib64\vs2015;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libhdf5.lib;libhdf5_cpp.lib;libhdf5_hl.lib;libhdf5_hl_cpp.lib;libhdf5_tools.lib;libszip.lib;libzlib.lib;opengl32.lib;glfw3.lib;Spinnaker_$(PlatformToolset).lib;Kinect20.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="basecamera.h" />
+    <ClInclude Include="basesaver.h" />
+    <ClInclude Include="h5out.h" />
+    <ClInclude Include="kincam.h" />
+    <ClInclude Include="pgcam.h" />
+    <ClInclude Include="streamer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

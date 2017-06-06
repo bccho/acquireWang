@@ -1,19 +1,40 @@
 #pragma once
-//#pragma warning(push, 0)
+#pragma warning(push, 0)
 #include "Spinnaker.h"
 #include "SpinGenApi/SpinnakerGenApi.h"
-#include "basecamera.h"
-//#pragma warning(pop)
+#pragma warning(pop)
+#include "camera.h"
+#include "debug.h"
 
 using namespace std;
 typedef uint8_t pointgrey_t;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * This class implements the Point Grey camera frame class, which derives
+ * from the BaseFrame class.
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+class PointGreyFrame : public BaseFrame {
+public:
+	// Constructor overloads
+	PointGreyFrame(size_t _width, size_t _height) :
+			BaseFrame(_width, _height, sizeof(pointgrey_t)) {}
+	PointGreyFrame(size_t _width, size_t _height, pointgrey_t* _data, double _timestamp) :
+			BaseFrame(_width, _height, sizeof(pointgrey_t), _data, _timestamp) {}
+	// Method overloads
+	void copyDataFromBuffer(pointgrey_t* buffer) {
+		BaseFrame::copyDataFromBuffer(buffer);
+	}
+	void copyDataToBuffer(pointgrey_t* buffer) {
+		BaseFrame::copyDataToBuffer(buffer);
+	}
+};
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * This class implements the Point Grey camera class, which derives from the
  * BaseCamera class. This requires the Point Grey context to be managed
  * outside the class.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-class PointGreyCamera : public BaseCamera<pointgrey_t> {
+class PointGreyCamera : public BaseCamera {
 private:
 	Spinnaker::CameraPtr pCam;
 
@@ -44,11 +65,11 @@ private:
 		}
 	}
 public:
-	PointGreyCamera(Spinnaker::CameraPtr& _pCam) : pCam(_pCam) {}
+	PointGreyCamera(Spinnaker::CameraPtr& _pCam) : pCam(_pCam) { channels = 1; }
 
 	void initialize() {
 		pCam->Init();
-		// cout << "PG camera initialized" << endl;
+		debugMessage("PG camera initialized"s, LEVEL_INFO);
 		width = pCam->Width.GetValue();
 		height = pCam->Height.GetValue();
 		fps = pCam->AcquisitionFrameRate.GetValue();
@@ -71,33 +92,33 @@ public:
 		pCam->EndAcquisition();
 	}
 
-	virtual pair<bool, void*> getFrame() {
+	virtual pair<bool, BaseFrame> getFrame() {
 		try {
 			int res = ensureOK(true);
 			if (res < 0) {
-				cout << "Point Grey camera is not cooperating. Error message " << res << endl;
-				return make_pair(false, nullptr);
+				debugMessage("PG camera is not cooperating. Error message "s + std::to_string(res), LEVEL_ERROR);
+				return std::make_pair(false, BaseFrame());
 			}
 
 			// Pull frame
 			Spinnaker::ImagePtr pNewFrame = pCam->GetNextImage();
 			if (pNewFrame->IsIncomplete()) {
-				cout << "Image incomplete with image status " << pNewFrame->GetImageStatus() << endl;
+				debugMessage("PG image incomplete with image status "s + std::to_string(pNewFrame->GetImageStatus()), LEVEL_ERROR);
 			}
 			// Perform a deep copy and ensure each pixel is 1 byte
-			Spinnaker::ImagePtr copiedFrame = pNewFrame->Convert(Spinnaker::PixelFormat_Mono8, Spinnaker::HQ_LINEAR);
+			Spinnaker::ImagePtr pgBuffer = pNewFrame->Convert(Spinnaker::PixelFormat_Mono8, Spinnaker::HQ_LINEAR);
 
 			// Copy again in case copiedFrame deletes data when it goes out of scope
-			void* copied = new uint8_t[getFrameSize()];
-			memcpy(copied, copiedFrame->GetData(), getFrameSize());
+			PointGreyFrame copiedFrame(getWidth(), getHeight());
+			copiedFrame.copyDataFromBuffer((pointgrey_t*) pgBuffer->GetData());
 
 			// Release image
 			pNewFrame->Release();
 
-			return make_pair(true, copied);
+			return std::make_pair(true, copiedFrame);
 		}
 		catch (...) {
-			return make_pair(false, nullptr);
+			return std::make_pair(false, BaseFrame());
 		}
 	}
 

@@ -99,31 +99,39 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\include;..\..\include;C:\Program Files\Point Grey Research\Spinnaker\include;..\..\glfw\include;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\include;..\..\..\include;C:\Program Files\Point Grey Research\Spinnaker\include;.\..\..\glfw\include;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;WIN32;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <DisableSpecificWarnings>4710</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4710; 4099</DisableSpecificWarnings>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\bin;C:\Program Files\HDF_Group\HDF5\1.8.17\lib;C:\Apps\glfw-3.2.bin.WIN64\lib-vc2015;C:\Program Files\Point Grey Research\Spinnaker\lib64;C:\Program Files\Point Grey Research\Spinnaker\lib64\vs2015;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libhdf5.lib;libhdf5_cpp.lib;libhdf5_hl.lib;libhdf5_hl_cpp.lib;libhdf5_tools.lib;libszip.lib;libzlib.lib;opengl32.lib;glfw3.lib;Spinnaker_$(PlatformToolset).lib;Kinect20.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="acquirer.cpp" />
+    <ClCompile Include="saver.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="timer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="basecamera.h" />
-    <ClInclude Include="basesaver.h" />
+    <ClInclude Include="camera.h" />
+    <ClInclude Include="debug.h" />
+    <ClInclude Include="saver.h" />
+    <ClInclude Include="frame.h" />
     <ClInclude Include="h5out.h" />
     <ClInclude Include="kincam.h" />
     <ClInclude Include="pgcam.h" />
-    <ClInclude Include="streamer.h" />
+    <ClInclude Include="acquirer.h" />
+    <ClInclude Include="timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

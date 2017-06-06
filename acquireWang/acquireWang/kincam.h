@@ -1,12 +1,36 @@
 #pragma once
+#pragma warning(push, 0)
 #include <string>
 #include "Kinect.h"
 #include "comdef.h"
-#include "basecamera.h"
+#pragma warning(pop)
+#include "camera.h"
+#include "frame.h"
+#include "debug.h"
 
 using namespace std;
 
 typedef uint16_t kinect_t;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * This class implements the Kinect camera frame class, which derives from the
+ * BaseFrame class.
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+class KinectFrame : public BaseFrame {
+public:
+	// Constructor overrides
+	KinectFrame(size_t _width, size_t _height) :
+			BaseFrame(_width, _height, sizeof(kinect_t)) {}
+	KinectFrame(size_t _width, size_t _height, kinect_t* _data, double _timestamp) :
+			BaseFrame(_width, _height, sizeof(kinect_t), _data, _timestamp) {}
+	// Method overrides
+	void copyDataFromBuffer(kinect_t* buffer) {
+		BaseFrame::copyDataFromBuffer(buffer);
+	}
+	void copyDataToBuffer(kinect_t* buffer) {
+		BaseFrame::copyDataToBuffer(buffer);
+	}
+};
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * This class implements the Kinect camera class, which derives from the
@@ -14,7 +38,7 @@ typedef uint16_t kinect_t;
  * driver) does not permit multiple Kinect cameras, and currently only returns
  * the depth stream.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-class KinectCamera : public BaseCamera<uint16_t> {
+class KinectCamera : public BaseCamera {
 private:
 	IKinectSensor* kinectSensor;
 	IMultiSourceFrameReader* frameReader;
@@ -24,9 +48,7 @@ private:
 	void handleHRESULT(HRESULT hr, string& whileDoing) {
 		if (hr != S_OK) {
 			_com_error err(hr);
-			if (DEBUGGING) {
-				printf("[!] Error %s: %s\n", whileDoing.c_str(), err.ErrorMessage());
-			}
+			debugMessage("Kinect camera error "s + whileDoing + ": "s + err.ErrorMessage(), LEVEL_ERROR);
 		}
 	}
 public:
@@ -60,6 +82,8 @@ public:
 		height = (size_t)_height;
 		width = (size_t)_width;
 
+		channels = 1;
+
 		frameDescription->Release();
 
 		fps = 30;
@@ -70,7 +94,7 @@ public:
 		handleHRESULT(hr, "closing Kinect sensor"s);
 	}
 
-	virtual pair<bool, void*> getFrame() {
+	virtual pair<bool, BaseFrame> getFrame() {
 		try {
 			HRESULT hr;
 
@@ -121,13 +145,13 @@ public:
 			}
 
 			// Copy frame
-			void* copiedFrame = new uint16_t[getFrameSize()];
-			memcpy(copiedFrame, depthBuffer, depthBufferSize * sizeof(uint16_t));
+			KinectFrame copiedFrame(getWidth(), getHeight());
+			copiedFrame.copyDataFromBuffer(depthBuffer);
 
-			return make_pair(true, copiedFrame);
+			return std::make_pair(true, copiedFrame);
 		}
 		catch (...) {
-			return make_pair(false, nullptr);
+			return std::make_pair(false, BaseFrame());
 		}
 	}
 };

@@ -6,14 +6,13 @@
 
 /* Constructor and destructor */
 BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
-		name(_name), camera(_camera),
+		name(_name), camera(_camera), acquireThread(nullptr),
 		queue(FRAME_BUFFER_SIZE), queueGUI(FRAME_BUFFER_SIZE),
 		framesToAcquire(0), framesReceived(0), acquiring(true) {
+	debugMessage("BaseAcquirer constructor " + name, LEVEL_INFO);
 	// Choose default GUI downsample rate
 	GUI_downsample_rate = (int)(camera.getFPS() / DISPLAY_FRAME_RATE);
 	if (GUI_downsample_rate < 1) GUI_downsample_rate = 1;
-	// Start thread
-	acquireThread = new std::thread(&BaseAcquirer::acquireLoop, this);
 	// Initialize camera
 	camera.initialize();
 }
@@ -24,8 +23,10 @@ BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
 // Destructor (finalize camera after passing to acquirer, but do not end acquisition)
 BaseAcquirer::~BaseAcquirer() {
 	// End thread
-	acquireThread->join();
-	delete acquireThread;
+	if (acquireThread != nullptr) {
+		acquireThread->join();
+		delete acquireThread;
+	}
 	// Finalize camera
 	camera.finalize();
 	// Empty queues
@@ -34,6 +35,11 @@ BaseAcquirer::~BaseAcquirer() {
 }
 
 /* Other public methods */
+
+void BaseAcquirer::run() {
+	// Start thread
+	acquireThread = new std::thread(&BaseAcquirer::acquireLoop, this);
+}
 
 bool BaseAcquirer::dequeue(BaseFrame& frame) {
 	return queue.try_dequeue(frame);

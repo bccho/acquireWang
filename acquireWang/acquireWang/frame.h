@@ -2,6 +2,7 @@
 #pragma warning(push, 0)
 #include <cstdlib>
 #include <cstring>
+#include "debug.h"
 #pragma warning(pop)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -35,7 +36,11 @@ protected:
 public:
 	// Default constructor and destructor
 	BaseFrame() : width(0), height(0), channels(0), bytesPerPixel(0), timestamp(0), data(nullptr) {}
-	~BaseFrame() { if (data != nullptr) std::free(data); }
+	virtual ~BaseFrame() {
+		//debugMessage("~BaseFrame", LEVEL_INFO);
+		if (data != nullptr) std::free(data);
+	}
+
 	// Copy constructor (shallow copy)
 	BaseFrame(const BaseFrame& other) :
 			width(other.width), height(other.height), channels(other.channels), bytesPerPixel(other.bytesPerPixel),

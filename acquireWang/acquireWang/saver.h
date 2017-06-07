@@ -21,7 +21,7 @@ protected:
 	std::atomic<bool> saving; // Flag to indicate if saving should abort
 private:
 	std::thread* saveThread; // Thread for saving
-	std::vector<BaseAcquirer> acquirers; // Acquirers for reference
+	std::vector<BaseAcquirer*>& acquirers; // Acquirers for reference
 
 	// Methods for thread
 	void moveFramesToWriteBuffers(size_t acqIndex); // Returns true if successful
@@ -31,8 +31,8 @@ public:
 	const std::string filename;
 
 	// Constructor and destructor
-	BaseSaver(std::string& _filename, std::vector<BaseAcquirer>& _acquirers, const size_t _frameChunkSize = 1);
-	~BaseSaver();
+	BaseSaver(std::string& _filename, std::vector<BaseAcquirer*>& _acquirers, const size_t _frameChunkSize = 1);
+	virtual ~BaseSaver();
 
 	// Must be overridden to write frame(s)
 	virtual bool writeFrames(size_t nFrames, size_t bufIndex) = 0;
@@ -42,6 +42,6 @@ public:
 	void abortSaving() { saving = false; }
 
 	// Saving progress, in number of seconds' worth of frames saved
-	double getSavingProgress(size_t acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex].getFPS(); }
+	double getSavingProgress(size_t acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
 };
 

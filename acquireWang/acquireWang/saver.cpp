@@ -4,7 +4,7 @@
  * PUBLIC METHODS  *
  * * * * * * * * * */
 
-BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer>& _acquirers, const size_t _frameChunkSize) :
+BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer*>& _acquirers, const size_t _frameChunkSize) :
 		numStreams(_acquirers.size()), filename(_filename), acquirers(_acquirers),
 		framesSaved(numStreams, 0), frameChunkSize(_frameChunkSize),
 		writeBuffers(numStreams, std::vector<BaseFrame>()) {
@@ -13,6 +13,7 @@ BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer>& _acquire
 }
 
 BaseSaver::~BaseSaver() {
+	debugMessage("~BaseSaver", LEVEL_INFO);
 	saveThread->join();
 	delete saveThread;
 }
@@ -39,7 +40,7 @@ void BaseSaver::writeLoop() {
 		}
 
 		/* Now, we deal only with the acquirer with the least saving progress */
-		BaseAcquirer acq = acquirers[leastIndex];
+		BaseAcquirer* acq = acquirers[leastIndex];
 		std::vector<BaseFrame> buf = writeBuffers[leastIndex];
 
 		// If there are enough frames in the buffer to write a chunk...
@@ -53,9 +54,9 @@ void BaseSaver::writeLoop() {
 		}
 
 		// ... or if we are at the end of acquisition
-		else if (acq.getFramesToAcquire() > 0 && // (i.e. if not indefinite acquisition
-				acq.getFramesReceived() >= acq.getFramesToAcquire() && // and we are done acquiring
-				buf.size() + framesSaved[leastIndex] >= acq.getFramesToAcquire()) { // and enough frames are sitting in the write buffer)
+		else if (acq->getFramesToAcquire() > 0 && // (i.e. if not indefinite acquisition
+				acq->getFramesReceived() >= acq->getFramesToAcquire() && // and we are done acquiring
+				buf.size() + framesSaved[leastIndex] >= acq->getFramesToAcquire()) { // and enough frames are sitting in the write buffer)
 			// Write frames to file
 			bool res = writeFrames(buf.size(), leastIndex);
 			// Remove those frames from the write buffer if successful
@@ -66,9 +67,9 @@ void BaseSaver::writeLoop() {
 }
 
 void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
-	while (!acquirers[acqIndex].isQueueEmpty()) {
+	while (!acquirers[acqIndex]->isQueueEmpty()) {
 		BaseFrame dequeued;
-		bool succeeded = acquirers[acqIndex].dequeue(dequeued);
+		bool succeeded = acquirers[acqIndex]->dequeue(dequeued);
 		if (succeeded) { writeBuffers[acqIndex].push_back(dequeued); }
 	}
 }

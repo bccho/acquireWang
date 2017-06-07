@@ -33,16 +33,13 @@
 #include "previewwindow.h"
 #include "debug.h"
 
-// Namespaces
-using namespace Spinnaker;
-
 /* Global variables */
 size_t frameChunkSize;
-std::map<string, size_t> params;
+std::map<std::string, size_t> params;
 
 // For threads
-atomic<bool> acquiring;
-atomic<bool> saving;
+std::atomic<bool> acquiring;
+std::atomic<bool> saving;
 
 // GUI
 GLFWwindow* win;
@@ -58,16 +55,16 @@ std::vector<DSetCreatPropList> dcpls;
 /* Methods */
 
 // Read configurations
-map<string, size_t> readConfig() {
-	map<string, size_t> params;
+std::map<std::string, size_t> readConfig() {
+	std::map<std::string, size_t> params;
 
-	ifstream fParams("params.json");
+	std::ifstream fParams("params.json");
 	if (fParams.good()) {
 		// Load from file
-		stringstream paramsBuffer;
+		std::stringstream paramsBuffer;
 		paramsBuffer << fParams.rdbuf();
 		auto parsed = nlohmann::json::parse(paramsBuffer.str());
-		params = parsed.get<map<string, size_t>>();
+		params = parsed.get<std::map<std::string, size_t>>();
 
 		debugMessage("Loaded parameters from params.json", LEVEL_INFO);
 	}
@@ -89,7 +86,7 @@ map<string, size_t> readConfig() {
 
 		// Save
 		nlohmann::json j_map(params);
-		ofstream f2("params.json");
+		std::ofstream f2("params.json");
 		f2 << j_map.dump(4);
 		f2.close();
 
@@ -101,7 +98,7 @@ map<string, size_t> readConfig() {
 }
 
 // Utilities
-bool fileExists(const string& name) {
+bool fileExists(const std::string& name) {
 	if (FILE *file = fopen(name.c_str(), "r")) {
 		fclose(file);
 		return true;
@@ -117,7 +114,7 @@ int getConsoleWidth() {
 	return columns;
 }
 
-void writeScalarAttribute(H5::Group group, string& name, int value) {
+void writeScalarAttribute(H5::Group group, std::string& name, int value) {
 	int attr_data[1] = { value };
 	const H5::PredType datatype = H5::PredType::STD_I32LE;
 	H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
@@ -125,7 +122,7 @@ void writeScalarAttribute(H5::Group group, string& name, int value) {
 	attribute.write(datatype, attr_data);
 }
 
-void writeScalarAttribute(H5::Group group, string& name, double value) {
+void writeScalarAttribute(H5::Group group, std::string& name, double value) {
 	double attr_data[1] = { value };
 	const H5::PredType datatype = H5::PredType::NATIVE_DOUBLE;
 	H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
@@ -135,15 +132,15 @@ void writeScalarAttribute(H5::Group group, string& name, double value) {
 
 // Recording session
 int record(std::string& saveTitle, double duration) {
-	/* Prepare acquisition objects */
+	/* Prepare acquirers */
 	debugMessage(std::to_string(cameras.size()) + " cameras", LEVEL_INFO);
-	std::vector<BaseAcquirer> acquirers;
+	std::vector<BaseAcquirer*> acquirers;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		// Make new acquirer
-		acquirers.push_back(BaseAcquirer(camnames[i], *cameras[i]));
+		acquirers.push_back(&BaseAcquirer(camnames[i], *cameras[i]));
 	}
 
-	/* Prepare saving object */
+	/* Prepare HDF5 saver */
 	// Check if file exists
 	if (fileExists(saveTitle + ".h5")) {
 		debugMessage("File already exists. Overwriting...", LEVEL_WARNING);
@@ -152,21 +149,29 @@ int record(std::string& saveTitle, double duration) {
 	H5::FileAccPropList fapl;
 	fapl.setCache(65536000, params["_rdcc_nslots"], params["_rdcc_nbytes"], 0);
 	// Create saving object
-	H5Out h5out(saveTitle, acquirers, frameChunkSize, camnames, dtypes,
+	H5Out h5out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
 
 	/* Set up frame counts */
 	for (size_t i = 0; i < cameras.size(); i++) {
 		size_t totalFrames = round(duration * 60.0 * cameras[i]->getFPS());
-		acquirers[i].setFramesToAcquire(totalFrames);
+		acquirers[i]->setFramesToAcquire(totalFrames);
 	}
 
 	/* Start GUI */
 	PreviewWindow preview(1280, 960, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
 		acquirers, formats);
-	preview.run();
+	for (size_t i = 0; i < cameras.size(); i++) {
+		acquirers[i]->run();
+		acquirers[i]->beginAcquisition();
+	}
+	//preview.run();
+	for (size_t i = 0; i < cameras.size(); i++) {
+		acquirers[i]->endAcquisition();
+	}
 
 	// This will block on exit until acquisition and saving threads are joined
+	debugMessage("Exiting recording method", LEVEL_INFO);
 	return EXIT_SUCCESS;
 }
 
@@ -175,7 +180,6 @@ int main(int argc, char* argv[]) {
 	// Memory leak detection
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-#pragma region Setting up program
 	/* Parse input arguments */
 	double recordingDuration(0); // minutes
 	bool fixedlen = true;
@@ -189,14 +193,14 @@ int main(int argc, char* argv[]) {
 	else {
 		recordingDuration = atof(argv[2]);
 	}
-	string saveTitle = string(argv[1]);
+	std::string saveTitle = std::string(argv[1]);
 
 	/* Read configuration file */
 	params = readConfig();
 
 	frameChunkSize = params["_frameChunkSize"];
-#pragma endregion
 
+	/* Set up HDF5 DCPLs */
 	// Set up dataset creation property lists
 	H5::DSetCreatPropList kin_dcpl;
 	const int frame_ndims = 4;
@@ -221,33 +225,51 @@ int main(int argc, char* argv[]) {
 	kin_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 	pg_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 
-	/* Initialize Point Grey system */
-	SystemPtr system = System::GetInstance();
-	CameraList camList = system->GetCameras();
+	/* Set up cameras */
+	// Initialize Point Grey system
+	Spinnaker::SystemPtr system = Spinnaker::System::GetInstance();
+	Spinnaker::CameraList camList = system->GetCameras();
 	int numPGcameras = camList.GetSize();
-	debugMessage("Connected Point Grey devices: "s + std::to_string(numPGcameras), LEVEL_INFO);
+	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), LEVEL_INFO);
 
-	/* Set up Kinect camera */
+	// Set up Kinect camera
 	// TODO: add kinect to camnames, dtypes, etc. if it exists
-	KinectCamera kincam;
-	cameras.push_back(&kincam);
-	camnames.push_back("kinect"s);
+	cameras.push_back(new KinectCamera);
+	camnames.push_back("kinect");
 	formats.push_back(DEPTH_16BIT);
 	dtypes.push_back(KINECT_H5T);
 	dcpls.push_back(kin_dcpl);
 
-	/* Set up Point Grey cameras */
-	std::vector<CameraPtr> pgCameras;
+	// Set up Point Grey cameras
+	std::vector<Spinnaker::Camera*> pgCameras;
 	for (int i = 0; i < numPGcameras; i++) {
-		PointGreyCamera pgcam(camList.GetByIndex(i));
-		cameras.push_back(&pgcam);
-		pgCameras.push_back(camList.GetByIndex(i));
+		pgCameras.push_back(camList.GetByIndex(i).operator->());
+		cameras.push_back(new PointGreyCamera(pgCameras[i]));
 		// TODO: Add to camnames, dtypes, etc.
-		camnames.push_back("pg"s + std::to_string(i));
+		camnames.push_back("pg" + std::to_string(i));
 		formats.push_back(GRAY_8BIT);
 		dtypes.push_back(POINTGREY_H5T);
 		dcpls.push_back(pg_dcpl);
 	}
+	for (int i = 0; i < numPGcameras; i++) {
+		std::cout << i << ": " << pgCameras[i]->IsValid() << std::endl;
+	}
+	//std::vector<Spinnaker::CameraPtr> pgCameras;
+	//for (int i = 0; i < numPGcameras; i++) {
+	//	pgCameras.push_back(camList.GetByIndex(i));
+	//	PointGreyCamera pgcam(pgCameras[i]);
+	//	cameras.push_back(&pgcam);
+	//	// TODO: Add to camnames, dtypes, etc.
+	//	camnames.push_back("pg" + std::to_string(i));
+	//	formats.push_back(GRAY_8BIT);
+	//	dtypes.push_back(POINTGREY_H5T);
+	//	dcpls.push_back(pg_dcpl);
+	//}
+
+	//for (int i = 0; i < numPGcameras; i++) {
+	//	std::cout << i << ": " << (pgCameras[i]).IsValid();
+	//	std::cout << " " << (pgCameras[i])->IsValid() << std::endl;
+	//}
 
 	/* Recording loop */
 	if (fixedlen) {
@@ -258,20 +280,20 @@ int main(int argc, char* argv[]) {
 		int iteration = 0;
 
 		while (true) { // Loop as long as user wants to record
-			cout << string(getConsoleWidth() - 1, '*') << endl;
+			std::cout << std::string(getConsoleWidth() - 1, '*') << std::endl;
 			// Prepare title index to append to provided filename root
-			string titleIndex;
+			std::string titleIndex;
 			if (iteration < 10000) {
-				titleIndex = string(4 - to_string(iteration).length(), '0') + to_string(iteration);
+				titleIndex = std::string(4 - std::to_string(iteration).length(), '0') + std::to_string(iteration);
 			}
 			else {
-				titleIndex = to_string(iteration);
+				titleIndex = std::to_string(iteration);
 			}
-			cout << "Begin recording " + saveTitle + "-" + titleIndex + "? (y/n) ";
+			std::cout << "Begin recording " + saveTitle + "-" + titleIndex + "? (y/n) ";
 			// Get user input: require either explicit yes or no
-			string userInput;
+			std::string userInput;
 			while (!(userInput == "YES" || userInput == "Y" || userInput == "NO" || userInput == "N")) {
-				cin >> userInput;
+				std::cin >> userInput;
 				for (auto & c : userInput) c = toupper(c); // convert to uppercase
 			}
 			if (userInput == "NO" || userInput == "N")
@@ -288,9 +310,12 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	/* Finalize Point Grey camera system */
+	/* Finalize cameras */
+	for (auto ptr : cameras) {
+		delete ptr;
+	}
 	try {
-		for (auto &ptr : pgCameras) {
+		for (auto ptr : pgCameras) {
 			ptr->DeInit();
 			ptr = NULL;
 		}
@@ -298,12 +323,12 @@ int main(int argc, char* argv[]) {
 		system->ReleaseInstance();
 	}
 	catch (...) {
-		debugMessage("Error in Point Grey camera system finalization"s, LEVEL_ERROR);
+		debugMessage("Error in Point Grey camera system finalization", LEVEL_ERROR);
 	}
 
 	// Memory leak detection
 	if (_CrtDumpMemoryLeaks()) {
-		debugMessage("Memory leaks found!"s, LEVEL_ERROR);
+		debugMessage("Memory leaks found!", LEVEL_ERROR);
 	}
 
 	exit(EXIT_SUCCESS);

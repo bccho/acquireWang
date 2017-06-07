@@ -8,8 +8,6 @@
 #include "frame.h"
 #include "debug.h"
 
-using namespace std;
-
 typedef uint16_t kinect_t;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -45,56 +43,67 @@ private:
 
 	WAITABLE_HANDLE frameEvent;
 
-	void handleHRESULT(HRESULT hr, string whileDoing) {
+	void handleHRESULT(HRESULT hr, std::string whileDoing) {
 		if (hr != S_OK) {
 			_com_error err(hr);
-			debugMessage("Kinect camera error "s + whileDoing + ": "s + err.ErrorMessage(), LEVEL_ERROR);
+			//throw "Kinect camera error while "s + whileDoing + ": "s + err.ErrorMessage();
+			debugMessage("Kinect camera error " + whileDoing + ": " + err.ErrorMessage(), LEVEL_ERROR);
 		}
 	}
 public:
 	KinectCamera() {
 		HRESULT hr;
 		hr = GetDefaultKinectSensor(&kinectSensor);
-		handleHRESULT(hr, "detecting Kinect"s);
+		handleHRESULT(hr, "detecting Kinect");
 
 		// Open sensor
 		hr = kinectSensor->Open();
-		handleHRESULT(hr, "opening Kinect"s);
+		handleHRESULT(hr, "opening Kinect sensor");
 
 		// Subscribe to frame callback
 		hr = kinectSensor->OpenMultiSourceFrameReader(FrameSourceTypes::FrameSourceTypes_Depth, &frameReader);
-		handleHRESULT(hr, "opening Kinect source"s);
+		handleHRESULT(hr, "opening Kinect source");
 		hr = frameReader->SubscribeMultiSourceFrameArrived(&frameEvent);
-		handleHRESULT(hr, "subscribing to frame event"s);
+		handleHRESULT(hr, "subscribing to frame event");
 
 		// Get frame size
 		IDepthFrameSource* depthFrameSource;
 		hr = kinectSensor->get_DepthFrameSource(&depthFrameSource);
-		handleHRESULT(hr, "getting depth frame source"s);
+		handleHRESULT(hr, "getting depth frame source");
 		IFrameDescription* frameDescription;
 		hr = depthFrameSource->get_FrameDescription(&frameDescription);
-		handleHRESULT(hr, "getting depth frame descriptor"s);
+		handleHRESULT(hr, "getting depth frame descriptor");
 		int _height, _width;
 		hr = frameDescription->get_Height(&_height);
-		handleHRESULT(hr, "getting depth frame height"s);
+		handleHRESULT(hr, "getting depth frame height");
 		hr = frameDescription->get_Width(&_width);
-		handleHRESULT(hr, "getting depth frame width"s);
+		handleHRESULT(hr, "getting depth frame width");
 		height = (size_t)_height;
 		width = (size_t)_width;
 
 		channels = 1;
 
 		frameDescription->Release();
+		hr = kinectSensor->Close();
+		handleHRESULT(hr, "closing Kinect sensor");
 
 		fps = 30;
 	}
-
-	void finalize() {
-		HRESULT hr = kinectSensor->Close();
-		handleHRESULT(hr, "closing Kinect sensor"s);
+	~KinectCamera() {
+		debugMessage("~KinectCamera", LEVEL_INFO);
 	}
 
-	virtual pair<bool, BaseFrame> getFrame() {
+	virtual void initialize() {
+		HRESULT hr = kinectSensor->Open();
+		handleHRESULT(hr, "opening Kinect sensor");
+	}
+
+	virtual void finalize() {
+		HRESULT hr = kinectSensor->Close();
+		handleHRESULT(hr, "closing Kinect sensor");
+	}
+
+	virtual std::pair<bool, BaseFrame> getFrame() {
 		try {
 			HRESULT hr;
 
@@ -104,6 +113,7 @@ public:
 			// Loop until successful frame
 			while (true) {
 				// Wait for frame
+				debugMessage("Waiting...", LEVEL_INFO);
 				DWORD wait_timeout = 100; // ms (DWORD = uint32)
 				while (true) {
 					unsigned long event_id = WaitForSingleObject(reinterpret_cast<HANDLE>(frameEvent), wait_timeout);
@@ -114,19 +124,24 @@ public:
 				// Get frame
 				IMultiSourceFrameArrivedEventArgs* frameArgs;
 				hr = frameReader->GetMultiSourceFrameArrivedEventData(frameEvent, &frameArgs);
-				handleHRESULT(hr, "getting Kinect frame event data"s);
+				handleHRESULT(hr, "getting Kinect frame event data");
+				if (hr != S_OK) continue;
 				IMultiSourceFrameReference* frameReference;
 				hr = frameArgs->get_FrameReference(&frameReference);
-				handleHRESULT(hr, "getting Kinect source frame reference"s);
+				handleHRESULT(hr, "getting Kinect source frame reference");
+				if (hr != S_OK) continue;
 				IMultiSourceFrame* frame;
 				hr = frameReference->AcquireFrame(&frame);
-				handleHRESULT(hr, "acquiring depth source frame"s);
+				handleHRESULT(hr, "acquiring depth source frame");
+				if (hr != S_OK) continue;
 				IDepthFrameReference* depthFrameReference;
 				hr = frame->get_DepthFrameReference(&depthFrameReference);
-				handleHRESULT(hr, "getting depth frame reference"s);
+				handleHRESULT(hr, "getting depth frame reference");
+				if (hr != S_OK) continue;
 				IDepthFrame* depthFrame;
 				hr = depthFrameReference->AcquireFrame(&depthFrame);
-				handleHRESULT(hr, "getting depth frame"s);
+				handleHRESULT(hr, "getting depth frame");
+				if (hr != S_OK) continue;
 
 				// Release handles
 				frameReference->Release();
@@ -136,7 +151,8 @@ public:
 				if (hr == S_OK) {
 					// Get frame
 					hr = depthFrame->AccessUnderlyingBuffer(&depthBufferSize, &depthBuffer);
-					handleHRESULT(hr, "getting depth frame data"s);
+					handleHRESULT(hr, "getting depth frame data");
+					if (hr != S_OK) continue;
 
 					depthFrame->Release();
 
@@ -148,9 +164,11 @@ public:
 			KinectFrame copiedFrame(getWidth(), getHeight());
 			copiedFrame.copyDataFromBuffer(depthBuffer);
 
+			debugMessage("Returning successful...", LEVEL_INFO);
 			return std::make_pair(true, copiedFrame);
 		}
 		catch (...) {
+			debugMessage("Returning failed...", LEVEL_INFO);
 			return std::make_pair(false, BaseFrame());
 		}
 	}

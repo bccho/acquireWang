@@ -56,7 +56,7 @@ public:
 	// Copy constructor (shallow copy)
 	BaseAcquirer(const BaseAcquirer& other);
 	// Destructor (do not finalize camera after passing to acquirer)
-	~BaseAcquirer();
+	virtual ~BaseAcquirer();
 
 	/* Getter and setter methods */
 	std::string getName() { return name; }
@@ -90,6 +90,8 @@ public:
 		return res;
 	}
 
+	// Starts acquisition threads, etc.
+	void run();
 	// Gets acquisition progress (in number of seconds' worth of frames acquired)
 	double getAcquisitionProgress();
 	// Resets acquirer member variables as though freshly constructed

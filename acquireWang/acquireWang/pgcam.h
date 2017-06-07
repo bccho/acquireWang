@@ -6,7 +6,6 @@
 #include "camera.h"
 #include "debug.h"
 
-using namespace std;
 typedef uint8_t pointgrey_t;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -36,22 +35,26 @@ public:
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 class PointGreyCamera : public BaseCamera {
 private:
-	Spinnaker::CameraPtr pCam;
+	Spinnaker::Camera* pCam;
 
 	int ensureOK(bool ensureAcquiring) {
 		/* Returns negative values if not; returns 0 if yes */
 		try {
 			// Check pointer valid
-			if (!pCam->IsValid())
-				return -1; // invalid pointer
+			if (pCam == nullptr) return -1; // invalid pointer
+			debugMessage("Not nullptr", LEVEL_INFO);
+			if (!pCam->IsValid()) return -1; // invalid pointer
+			debugMessage("Valid", LEVEL_INFO);
 
-						   // Check initialized and acquiring; if not, try to fix it
+			// Check initialized and acquiring; if not, try to fix it
 			if (!pCam->IsInitialized()) {
+				debugMessage("Not initialized", LEVEL_INFO);
 				initialize();
 			}
 			if (ensureAcquiring && !pCam->IsStreaming()) {
 				pCam->BeginAcquisition();
 			}
+			debugMessage("Began acquisition", LEVEL_INFO);
 
 			// Check again and return
 			if (!pCam->IsInitialized())
@@ -65,45 +68,54 @@ private:
 		}
 	}
 public:
-	PointGreyCamera(Spinnaker::CameraPtr& _pCam) : pCam(_pCam) { channels = 1; }
+	PointGreyCamera(Spinnaker::Camera* _pCam) : pCam(_pCam) {
+		debugMessage("PG Camera constructor", LEVEL_INFO);
+		channels = 1;
+	}
+	~PointGreyCamera() {
+		debugMessage("~PointGreyCamera", LEVEL_INFO);
+	}
 
-	void initialize() {
+	virtual void initialize() {
+		debugMessage("Initializing PG camera", LEVEL_INFO);
 		pCam->Init();
-		debugMessage("PG camera initialized"s, LEVEL_INFO);
 		width = pCam->Width.GetValue();
 		height = pCam->Height.GetValue();
 		fps = pCam->AcquisitionFrameRate.GetValue();
 	}
 
-	void finalize() {
-		ensureOK(false);
+	virtual void finalize() {
+		debugMessage("Finalizing PG camera", LEVEL_INFO);
 		if (pCam->IsStreaming()) {
 			pCam->EndAcquisition();
 		}
-		pCam = NULL;
+		pCam = NULL; // TODO: needed?
 	}
 
-	void beginAcquisition() {
+	virtual void beginAcquisition() {
+		debugMessage("Beginning acquisition PG camera", LEVEL_INFO);
 		ensureOK(false);
 		pCam->BeginAcquisition();
 	}
 
-	void endAcquisition() {
+	virtual void endAcquisition() {
+		debugMessage("Ending acquisition PG camera", LEVEL_INFO);
 		pCam->EndAcquisition();
 	}
 
-	virtual pair<bool, BaseFrame> getFrame() {
+	virtual std::pair<bool, BaseFrame> getFrame() {
+		debugMessage("pg getFrame", LEVEL_INFO);
 		try {
 			int res = ensureOK(true);
 			if (res < 0) {
-				debugMessage("PG camera is not cooperating. Error message "s + std::to_string(res), LEVEL_ERROR);
+				debugMessage("PG camera is not cooperating. Error message " + std::to_string(res), LEVEL_ERROR);
 				return std::make_pair(false, BaseFrame());
 			}
 
 			// Pull frame
 			Spinnaker::ImagePtr pNewFrame = pCam->GetNextImage();
 			if (pNewFrame->IsIncomplete()) {
-				debugMessage("PG image incomplete with image status "s + std::to_string(pNewFrame->GetImageStatus()), LEVEL_ERROR);
+				debugMessage("PG image incomplete with image status " + std::to_string(pNewFrame->GetImageStatus()), LEVEL_ERROR);
 			}
 			// Perform a deep copy and ensure each pixel is 1 byte
 			Spinnaker::ImagePtr pgBuffer = pNewFrame->Convert(Spinnaker::PixelFormat_Mono8, Spinnaker::HQ_LINEAR);

@@ -14,6 +14,9 @@ protected:
 public:
 	// Default constructor to give default values to members
 	BaseCamera() : width(0), height(0), channels(0), fps(0) {}
+	virtual ~BaseCamera() {
+		debugMessage("~BaseCamera", LEVEL_INFO);
+	}
 
 	// These methods are called externally, and do nothing by default.
 	// Override if you need them to do something.

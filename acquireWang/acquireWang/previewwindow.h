@@ -24,11 +24,11 @@ private:
 	GLFWwindow* win; // window handle
 	std::vector<stream_format> formats; // array of stream formats for displaying frames
 	std::vector<texture_buffer> buffers; // array of buffers to draw items
-	std::vector<BaseAcquirer> acquirers; // array of acquirers so that frames can be pulled from the GUI queue
+	std::vector<BaseAcquirer*>& acquirers; // array of acquirers so that frames can be pulled from the GUI queue
 
 	bool shouldClose; // flag to indicate if the window should close
 public:
-	PreviewWindow(int width, int height, const char* title, std::vector<BaseAcquirer> _acquirers, std::vector<format> _formats) :
+	PreviewWindow(int width, int height, const char* title, std::vector<BaseAcquirer*> _acquirers, std::vector<format> _formats) :
 			numBuffers(_acquirers.size()), acquirers(_acquirers), shouldClose(false),
 			buffers(numBuffers) {
 		// Populate formats[] using enum values provided
@@ -49,6 +49,7 @@ public:
 	}
 
 	~PreviewWindow() {
+		debugMessage("~PreviewWindow", LEVEL_INFO);
 	}
 
 	void run() {
@@ -62,7 +63,7 @@ public:
 				}
 
 				// Draw frames if all GUI queues have something to show
-				if (std::all_of(acquirers.begin(), acquirers.end(), [](BaseAcquirer acq) { return acq.shouldDraw(); })) {
+				if (std::all_of(acquirers.begin(), acquirers.end(), [](BaseAcquirer* acq) { return acq->shouldDraw(); })) {
 					// Get frame buffer dimensions and clear frame buffer
 					int w, h;
 					glfwGetFramebufferSize(win, &w, &h);
@@ -82,8 +83,8 @@ public:
 						int ry = buf_h * ((int) i % nRows);
 						// Get frame and show
 						BaseFrame frame;
-						if (acquirers[i].getMostRecentGUI(frame))
-							showFrame(i, frame, rx, ry, buf_w, buf_h, acquirers[i].getName());
+						if (acquirers[i]->getMostRecentGUI(frame))
+							showFrame(i, frame, rx, ry, buf_w, buf_h, acquirers[i]->getName());
 					}
 
 					//// Progress bars

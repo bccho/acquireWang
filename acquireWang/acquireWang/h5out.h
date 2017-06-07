@@ -31,15 +31,21 @@ private:
 	std::vector< std::vector<size_t> > frameDims;
 
 public:
-	H5Out(std::string& _filename, std::vector<BaseAcquirer>& _acquirers, const size_t _frameChunkSize,
+	H5Out(std::string& _filename, std::vector<BaseAcquirer*>& _acquirers, const size_t _frameChunkSize,
 		const std::vector<std::string>& _dsnames, const std::vector<PredType>& _datatypes,
 		const FileCreatPropList& _fcpl, const FileAccPropList& _fapl, const std::vector<DSetCreatPropList>& _dcpls) :
 			BaseSaver(_filename, _acquirers, _frameChunkSize),
 			file(filename, H5F_ACC_TRUNC, _fcpl, _fapl),
 			dsnames(_dsnames), datatypes(_datatypes) {
+		// Initialize time DCPL
+		DSetCreatPropList time_dcpl;
+		const int time_ndims = 2;
+		size_t time_chunk_dims[time_ndims] = { frameChunkSize, 1 };
+		time_dcpl.setChunk(time_ndims, time_chunk_dims);
+
 		// Initialize frameDims
 		for (int i = 0; i < numStreams; i++) {
-			frameDims.push_back(_acquirers[i].getDims());
+			frameDims.push_back(_acquirers[i]->getDims());
 		}
 
 		// Initialize frame datasets
@@ -73,7 +79,7 @@ public:
 			DataSpace* dataspace = new DataSpace(2, dims, maxdims);
 
 			// Create dataset
-			tsdatasets.push_back(file.createDataSet((dsnames[i] + "_time").c_str(), TIMESTAMP_H5T, *dataspace));
+			tsdatasets.push_back(file.createDataSet((dsnames[i] + "_time").c_str(), TIMESTAMP_H5T, *dataspace, time_dcpl));
 
 			delete dims;
 			delete maxdims;
@@ -81,15 +87,7 @@ public:
 		}
 	}
 
-	template<typename T> void coutArray(int size, T* arr, const char* name) {
-		std::cout << name << ": ";
-		for (int i = 0; i < size; i++) {
-			std::cout << arr[i] << " ";
-		}
-		std::cout << std::endl;
-	}
-
-	bool writeFrames(size_t numFrames, size_t bufIndex) {
+	virtual bool writeFrames(size_t numFrames, size_t bufIndex) {
 		/* Write frame */
 		try {
 			// Extend dataset
@@ -164,6 +162,7 @@ public:
 	}
 
 	~H5Out() {
+		debugMessage("~H5Out", LEVEL_INFO);
 		for (int i = 0; i < numStreams; i++) datasets[i].close();
 		file.close();
 	}

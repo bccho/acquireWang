@@ -15,6 +15,6 @@ enum Levels {
 
 #define VERBOSE_LEVEL 10
 
-inline void debugMessage(std::string& message, int verbosity) {
+inline void debugMessage(const std::string message, int verbosity) {
 	if (VERBOSE_LEVEL >= verbosity) std::cout << message << std::endl;
 }

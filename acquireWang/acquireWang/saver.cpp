@@ -4,7 +4,7 @@
  * PUBLIC METHODS  *
  * * * * * * * * * */
 
-BaseSaver::BaseSaver(const std::string& _filename, std::vector<BaseAcquirer>& _acquirers, size_t _frameChunkSize) :
+BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer>& _acquirers, const size_t _frameChunkSize) :
 		numStreams(_acquirers.size()), filename(_filename), acquirers(_acquirers),
 		framesSaved(numStreams, 0), frameChunkSize(_frameChunkSize),
 		writeBuffers(numStreams, std::vector<BaseFrame>()) {
@@ -13,6 +13,7 @@ BaseSaver::BaseSaver(const std::string& _filename, std::vector<BaseAcquirer>& _a
 }
 
 BaseSaver::~BaseSaver() {
+	saveThread->join();
 	delete saveThread;
 }
 
@@ -23,14 +24,14 @@ BaseSaver::~BaseSaver() {
 void BaseSaver::writeLoop() {
 	while (saving) {
 		// Move all waiting frames to write buffers for all streams
-		for (int i = 0; i < numStreams; i++) {
-			moveFramesToWriteBuffers(i, TIME_WAIT_QUEUE);
+		for (size_t i = 0; i < numStreams; i++) {
+			moveFramesToWriteBuffers(i);
 		}
 		
 		// Find stream with least saving progress
 		double leastSoFar = DBL_MAX;
-		int leastIndex = 0;
-		for (int i = 0; i < numStreams; i++) {
+		size_t leastIndex = 0;
+		for (size_t i = 0; i < numStreams; i++) {
 			if (getSavingProgress(i) < leastSoFar) {
 				leastSoFar = getSavingProgress(i);
 				leastIndex = i;
@@ -64,7 +65,7 @@ void BaseSaver::writeLoop() {
 	}
 }
 
-void BaseSaver::moveFramesToWriteBuffers(int acqIndex, const int64_t _timeout) {
+void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
 	while (!acquirers[acqIndex].isQueueEmpty()) {
 		BaseFrame dequeued;
 		bool succeeded = acquirers[acqIndex].dequeue(dequeued);

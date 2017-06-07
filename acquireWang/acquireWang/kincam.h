@@ -45,7 +45,7 @@ private:
 
 	WAITABLE_HANDLE frameEvent;
 
-	void handleHRESULT(HRESULT hr, string& whileDoing) {
+	void handleHRESULT(HRESULT hr, string whileDoing) {
 		if (hr != S_OK) {
 			_com_error err(hr);
 			debugMessage("Kinect camera error "s + whileDoing + ": "s + err.ErrorMessage(), LEVEL_ERROR);
@@ -106,7 +106,7 @@ public:
 				// Wait for frame
 				DWORD wait_timeout = 100; // ms (DWORD = uint32)
 				while (true) {
-					int event_id = WaitForSingleObject(reinterpret_cast<HANDLE>(frameEvent), wait_timeout);
+					unsigned long event_id = WaitForSingleObject(reinterpret_cast<HANDLE>(frameEvent), wait_timeout);
 					if (event_id != WAIT_TIMEOUT)
 						break;
 				}

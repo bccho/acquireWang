@@ -1,0 +1,11 @@
+{
+    "_frameChunkSize": 50,
+    "_kinectXchunk": 32,
+    "_kinectYchunk": 53,
+    "_lz4_block_size": 1073741824,
+    "_mdc_nelmnts": 1024,
+    "_pgXchunk": 32,
+    "_pgYchunk": 32,
+    "_rdcc_nbytes": 524288000,
+    "_rdcc_nslots": 32009
+}

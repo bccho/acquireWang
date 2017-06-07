@@ -32,15 +32,6 @@ protected:
 		setTimestamp(_timestamp);
 	}
 
-	// Buffer access methods (protect data from abuse)
-	// These must be overridden by derived classes for type safety
-	void copyDataFromBuffer(void* buffer) {
-		std::memcpy(data, buffer, getBytes());
-	}
-	void copyDataToBuffer(void* buffer) {
-		std::memcpy(buffer, data, getBytes());
-	}
-
 public:
 	// Default constructor and destructor
 	BaseFrame() : width(0), height(0), channels(0), bytesPerPixel(0), timestamp(0), data(nullptr) {}
@@ -61,6 +52,15 @@ public:
 	double getTimestamp() { return timestamp; }
 	void setTimestamp(double _timestamp) { timestamp = _timestamp; }
 
-	// Operator override for thread-safe queue
-	BaseFrame& operator=(const BaseFrame& other) { return BaseFrame(other); } // note: shallow copy!
+	// Buffer access methods (protect data from abuse)
+	// Derived classes should override these for type safety
+	void copyDataFromBuffer(void* buffer) {
+		std::memcpy(data, buffer, getBytes());
+	}
+	void copyDataToBuffer(void* buffer) {
+		std::memcpy(buffer, data, getBytes());
+	}
+
+	// Assignment operator override
+	BaseFrame operator=(const BaseFrame& other) { return BaseFrame(other); } // note: shallow copy!
 };

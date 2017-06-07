@@ -24,14 +24,14 @@ private:
 	std::vector<BaseAcquirer> acquirers; // Acquirers for reference
 
 	// Methods for thread
-	void moveFramesToWriteBuffers(int acqIndex, const int64_t timeout); // Returns true if successful
+	void moveFramesToWriteBuffers(size_t acqIndex); // Returns true if successful
 	void writeLoop();
 public:
 	// Filename to write to
 	const std::string filename;
 
-	// Default constructor and destructor
-	BaseSaver(const std::string& _filename, std::vector<BaseAcquirer>& _acquirers, size_t _frameChunkSize = 1);
+	// Constructor and destructor
+	BaseSaver(std::string& _filename, std::vector<BaseAcquirer>& _acquirers, const size_t _frameChunkSize = 1);
 	~BaseSaver();
 
 	// Must be overridden to write frame(s)
@@ -42,6 +42,6 @@ public:
 	void abortSaving() { saving = false; }
 
 	// Saving progress, in number of seconds' worth of frames saved
-	double getSavingProgress(int acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex].getFPS(); }
+	double getSavingProgress(size_t acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex].getFPS(); }
 };
 

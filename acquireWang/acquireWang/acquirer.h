@@ -26,7 +26,7 @@ const int64_t TIME_WAIT_QUEUE = 50000; // [microseconds], so 50000 = 50 ms
 class BaseAcquirer {
 protected:
 	std::string name;
-	BaseCamera* camera;
+	BaseCamera& camera;
 private:
 	// Thread-safe queues
 	BlockingReaderWriterQueue<BaseFrame> queue; // timestamp, pointer to stored object
@@ -52,7 +52,7 @@ private:
 
 public:
 	// Constructor (do not initialize camera before passing to acquirer)
-	BaseAcquirer(const std::string& _name, BaseCamera* _camera);
+	BaseAcquirer(const std::string& _name, BaseCamera& _camera);
 	// Copy constructor (shallow copy)
 	BaseAcquirer(const BaseAcquirer& other);
 	// Destructor (do not finalize camera after passing to acquirer)
@@ -73,19 +73,20 @@ public:
 	bool isQueueGUIEmpty() { return queueGUI.peek() == nullptr; }
 	bool dequeue(BaseFrame& frame); // Return true if successful
 	bool dequeueGUI(BaseFrame& frame);
+	bool getMostRecentGUI(BaseFrame& frame);
 
 	/* Methods */
 	// Camera access methods (for pointer safety, we do not permit direct access to the camera;
 	// also the creator of the Acquirer should have direct access to the camera anyway)
-	void beginAcquisition() { camera->beginAcquisition(); }
-	void endAcquisition() { camera->endAcquisition(); }
-	size_t getWidth() { return camera->getWidth(); }
-	size_t getHeight() { return camera->getHeight(); }
-	size_t getChannels() { return camera->getChannels(); }
-	size_t getFrameSize() { return camera->getFrameSize(); }
-	double getFPS() { return camera->getFPS(); }
+	void beginAcquisition() { camera.beginAcquisition(); }
+	void endAcquisition() { camera.endAcquisition(); }
+	size_t getWidth() { return camera.getWidth(); }
+	size_t getHeight() { return camera.getHeight(); }
+	size_t getChannels() { return camera.getChannels(); }
+	size_t getFrameSize() { return camera.getFrameSize(); }
+	double getFPS() { return camera.getFPS(); }
 	std::vector<size_t> getDims() {
-		std::vector<size_t> res = { camera->getChannels(), camera->getHeight(), camera->getWidth() };
+		std::vector<size_t> res = { camera.getChannels(), camera.getHeight(), camera.getWidth() };
 		return res;
 	}
 
@@ -97,4 +98,7 @@ public:
 	bool readyForGUI() { return (queueGUI.peek() != nullptr); }
 	// Returns true if the GUI in the main loop should stop blocking while waiting for this acquirer
 	bool shouldDraw() { return readyForGUI() || (framesReceived == framesToAcquire); }
+
+	// Assignment operator override
+	BaseAcquirer operator=(const BaseAcquirer& other) { return BaseAcquirer(other); } // note: shallow copy!
 };

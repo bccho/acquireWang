@@ -5,17 +5,17 @@
  * * * * * * * * * */
 
 /* Constructor and destructor */
-BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera* _camera) :
+BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
 		name(_name), camera(_camera),
 		queue(FRAME_BUFFER_SIZE), queueGUI(FRAME_BUFFER_SIZE),
 		framesToAcquire(0), framesReceived(0), acquiring(true) {
 	// Choose default GUI downsample rate
-	GUI_downsample_rate = (int)(camera->getFPS() / DISPLAY_FRAME_RATE);
+	GUI_downsample_rate = (int)(camera.getFPS() / DISPLAY_FRAME_RATE);
 	if (GUI_downsample_rate < 1) GUI_downsample_rate = 1;
 	// Start thread
 	acquireThread = new std::thread(&BaseAcquirer::acquireLoop, this);
 	// Initialize camera
-	camera->initialize();
+	camera.initialize();
 }
 
 BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
@@ -23,8 +23,11 @@ BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
 
 // Destructor (finalize camera after passing to acquirer, but do not end acquisition)
 BaseAcquirer::~BaseAcquirer() {
+	// End thread
+	acquireThread->join();
+	delete acquireThread;
 	// Finalize camera
-	camera->finalize();
+	camera.finalize();
 	// Empty queues
 	emptyQueue();
 	emptyQueueGUI();
@@ -40,9 +43,16 @@ bool BaseAcquirer::dequeueGUI(BaseFrame& frame) {
 	return queueGUI.try_dequeue(frame);
 }
 
+bool BaseAcquirer::getMostRecentGUI(BaseFrame& frame) {
+	bool result = false;
+	// While there are things on the queue, dequeue
+	while (!isQueueGUIEmpty()) { result = dequeueGUI(frame); }
+	return result;
+}
+
 double BaseAcquirer::getAcquisitionProgress() {
 	// Return progress as seconds' worth of frames acquired
-	return (double) framesReceived / camera->getFPS();
+	return (double) framesReceived / camera.getFPS();
 }
 
 void BaseAcquirer::reset() {
@@ -86,7 +96,7 @@ void BaseAcquirer::emptyQueueGUI() {
 
 void BaseAcquirer::getAndEnqueue() {
 	try {
-		std::pair<bool, BaseFrame> received = camera->getFrame(); // get frame from camera
+		std::pair<bool, BaseFrame> received = camera.getFrame(); // get frame from camera
 		double timestamp = getClockStamp(); // get timestamp when received
 		if (received.first) {
 			// Get frame and set timestamp

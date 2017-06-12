@@ -45,7 +45,11 @@ public:
 	}
 
 	// Copy constructor (deep copy; calls assignment operator overload)
-	BaseFrame(const BaseFrame& other) { *this = other; }
+	BaseFrame(const BaseFrame& other) : width(other.width), height(other.height), channels(other.channels),
+			bytesPerPixel(other.bytesPerPixel), timestamp(other.timestamp), valid(other.valid) {
+		data = allocate();
+		copyDataFromBuffer(other.data);
+	}
 	
 	// Getters and setters
 	bool isValid() const { return valid; }
@@ -79,7 +83,7 @@ public:
 
 			timestamp = other.timestamp;
 			if (data == nullptr) data = allocate();
-			std::memcpy(data, other.data, other.getBytes());
+			copyDataFromBuffer(other.data);
 		}
 
 		return *this;

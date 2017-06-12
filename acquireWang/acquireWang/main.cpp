@@ -160,7 +160,7 @@ int record(std::string& saveTitle, double duration) {
 
 	/* Start GUI */
 	PreviewWindow preview(1280, 960, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
-		acquirers, formats);
+		acquirers, *h5out, formats);
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();

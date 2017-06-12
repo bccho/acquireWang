@@ -65,7 +65,7 @@ public:
 	size_t getFramesReceived() { return framesReceived; }
 	size_t getFramesToAcquire() { return framesToAcquire; }
 	void setFramesToAcquire(size_t _framesToAcquire) { framesToAcquire = _framesToAcquire; }
-	bool isAcquiring() { return acquiring; }
+	bool isAcquiring() { return acquiring && framesReceived < framesToAcquire; }
 	void abortAcquisition() { acquiring = false; }
 	
 	/* Queue APIs */

@@ -96,7 +96,7 @@ public:
 			size_t* newdims = new size_t[ndims];
 			newdims[0] = framesSaved[bufIndex] + numFrames;
 			newdims[1] = frameDims[bufIndex][0]; newdims[2] = frameDims[bufIndex][1]; newdims[3] = frameDims[bufIndex][2];
-			debugMessage("newdims = [" + std::to_string(newdims[0]) + ", " + std::to_string(newdims[1]) + ", " + std::to_string(newdims[2]) + ", " + std::to_string(newdims[3]) + "]", DEBUG_INFO);
+			debugMessage("newdims = [" + std::to_string(newdims[0]) + ", " + std::to_string(newdims[1]) + ", " + std::to_string(newdims[2]) + ", " + std::to_string(newdims[3]) + "]", DEBUG_HIDDEN_INFO);
 			datasets[bufIndex].extend(newdims);
 			DataSpace dataspace = datasets[bufIndex].getSpace();
 			// Calculate offset
@@ -157,7 +157,7 @@ public:
 			for (size_t i = 0; i < numFrames; i++) {
 				*(buffer + i) = writeBuffers[bufIndex][i].getTimestamp();
 			}
-			datasets[bufIndex].write(buffer, TIMESTAMP_H5T, memspace, filespace);
+			tsdatasets[bufIndex].write(buffer, TIMESTAMP_H5T, memspace, filespace);
 			framesSaved[bufIndex] += numFrames;
 
 			delete[] buffer;

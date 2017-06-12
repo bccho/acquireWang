@@ -42,31 +42,31 @@ private:
 		try {
 			// Check pointer valid
 			if (pCam == nullptr) { // invalid pointer
-				debugMessage("pCam = nullptr", DEBUG_INFO);
+				debugMessage("pCam = nullptr", DEBUG_HIDDEN_INFO);
 				return -1;
 			}
 			if (!pCam->IsValid()) { // invalid pointer
-				debugMessage("Not valid", DEBUG_INFO);
+				debugMessage("Not valid", DEBUG_HIDDEN_INFO);
 				return -1;
 			}
 
 			// Check initialized and acquiring; if not, try to fix it
 			if (!pCam->IsInitialized()) {
-				debugMessage("Not initialized", DEBUG_INFO);
+				debugMessage("Not initialized", DEBUG_HIDDEN_INFO);
 				initialize();
 			}
 			if (ensureAcquiring && !pCam->IsStreaming()) {
-				debugMessage("Not acquiring", DEBUG_INFO);
+				debugMessage("Not acquiring", DEBUG_HIDDEN_INFO);
 				pCam->BeginAcquisition();
 			}
 
 			// Check again and return
 			if (!pCam->IsInitialized()) {
-				debugMessage("Still not initialized", DEBUG_INFO);
+				debugMessage("Still not initialized", DEBUG_HIDDEN_INFO);
 				return -2; // still not initialized
 			}
 			if (ensureAcquiring && !pCam->IsStreaming()) {
-				debugMessage("Still not acquiring", DEBUG_INFO);
+				debugMessage("Still not acquiring", DEBUG_HIDDEN_INFO);
 				return -3; // still not streaming
 			}
 			return 0;
@@ -77,16 +77,16 @@ private:
 	}
 public:
 	PointGreyCamera(Spinnaker::Camera* _pCam) : pCam(_pCam) {
-		debugMessage("PG Camera constructor", DEBUG_INFO);
+		debugMessage("PG Camera constructor", DEBUG_HIDDEN_INFO);
 		channels = 1;
 		bytesPerPixel = sizeof(pointgrey_t);
 	}
 	~PointGreyCamera() override {
-		debugMessage("~PointGreyCamera", DEBUG_INFO);
+		debugMessage("~PointGreyCamera", DEBUG_HIDDEN_INFO);
 	}
 
 	void initialize() override {
-		debugMessage("Initializing PG camera", DEBUG_INFO);
+		debugMessage("Initializing PG camera", DEBUG_HIDDEN_INFO);
 		pCam->Init();
 		width = pCam->Width.GetValue();
 		height = pCam->Height.GetValue();
@@ -94,14 +94,14 @@ public:
 	}
 
 	void finalize() override {
-		debugMessage("Finalizing PG camera", DEBUG_INFO);
+		debugMessage("Finalizing PG camera", DEBUG_HIDDEN_INFO);
 		if (pCam->IsStreaming()) {
 			pCam->EndAcquisition();
 		}
 	}
 
 	void beginAcquisition() override {
-		debugMessage("Beginning acquisition PG camera", DEBUG_INFO);
+		debugMessage("Beginning acquisition PG camera", DEBUG_HIDDEN_INFO);
 		try {
 			ensureReady(false);
 			if (!pCam->IsStreaming()) {
@@ -109,12 +109,13 @@ public:
 			}
 		}
 		catch (...) {
-			debugMessage("Error while beginning PG acquisition", DEBUG_ERROR);
+			debugMessage("Error while beginning PG acquisition. Trying again...", DEBUG_ERROR);
+			beginAcquisition();
 		}
 	}
 
 	void endAcquisition() override {
-		debugMessage("Ending acquisition PG camera", DEBUG_INFO);
+		debugMessage("Ending acquisition PG camera", DEBUG_HIDDEN_INFO);
 		if (pCam->IsStreaming()) {
 			pCam->EndAcquisition();
 		}

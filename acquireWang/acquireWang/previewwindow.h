@@ -7,6 +7,7 @@
 #include "visualization.h"
 #include "debug.h"
 #include "acquirer.h"
+#include "saver.h"
 
 enum format { DEPTH_16BIT, GRAY_8BIT, GRAY_16BIT };
 
@@ -25,11 +26,13 @@ private:
 	std::vector<stream_format> formats; // array of stream formats for displaying frames
 	std::vector<texture_buffer> buffers; // array of buffers to draw items
 	std::vector<BaseAcquirer*>& acquirers; // array of acquirers so that frames can be pulled from the GUI queue
+	BaseSaver& saver; // saver
 
 	bool shouldClose; // flag to indicate if the window should close
 public:
-	PreviewWindow(int width, int height, const char* title, std::vector<BaseAcquirer*>& _acquirers, std::vector<format>& _formats) :
-			numBuffers(_acquirers.size()), acquirers(_acquirers), shouldClose(false),
+	PreviewWindow(int width, int height, const char* title,
+				std::vector<BaseAcquirer*>& _acquirers, BaseSaver& _saver, std::vector<format>& _formats) :
+			numBuffers(_acquirers.size()), acquirers(_acquirers), saver(_saver), shouldClose(false),
 			buffers(numBuffers) {
 		// Populate formats[] using enum values provided
 		for (size_t i = 0; i < _formats.size(); i++) {
@@ -111,6 +114,9 @@ public:
 					// Show on screen
 					glPopMatrix();
 					glfwSwapBuffers(win);
+					
+					// Break condition
+					if (!saver.isSaving()) break;
 				}
 			}
 		} catch (...) {

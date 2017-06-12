@@ -46,15 +46,8 @@ void BaseAcquirer::run() {
 
 BaseFrame BaseAcquirer::dequeue() {
 	BaseFrame result;
-	debugMessage("dequeue() " + name + ": queue.peek() = " + std::to_string((long long)queue.peek()), DEBUG_INFO);
-	//if (queue.peek() != nullptr)
-	//	debugMessage("          frame valid? " + std::to_string(queue.peek()->isValid()), DEBUG_INFO);
 	queue.try_dequeue(result);
-	debugMessage("          " + name + ": queue.peek() = " + std::to_string((long long)queue.peek()), DEBUG_INFO);
-	debugMessage("          frame valid? " + std::to_string(result.isValid()), DEBUG_INFO);
-	if (result.isValid()) {
-		debugMessage("dequeued valid frame", DEBUG_INFO);
-	}
+	if (result.isValid()) { debugMessage("dequeued valid frame", DEBUG_HIDDEN_INFO); }
 	return result;
 }
 
@@ -129,7 +122,7 @@ void BaseAcquirer::getAndEnqueue() {
 				enqueueFrameGUI(received);
 			}
 			enqueueFrame(received);
-			debugMessage("getAndEnqueue() " + name + ": queue.peek() = " + std::to_string((long long) queue.peek()), DEBUG_INFO);
+			debugMessage("getAndEnqueue() " + name + ": queue.peek() = " + std::to_string((long long) queue.peek()), DEBUG_HIDDEN_INFO);
 		} else {
 			debugMessage("Failed to receive " + name + " frame.", DEBUG_ERROR);
 		}

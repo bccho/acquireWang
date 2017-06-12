@@ -4,6 +4,7 @@
 #include <thread>
 #include <vector>
 #include <deque>
+#include <algorithm>
 #pragma warning(pop)
 #include "acquirer.h"
 
@@ -39,7 +40,13 @@ public:
 	virtual bool writeFrames(size_t nFrames, size_t bufIndex) = 0;
 
 	// Saving flag methods
-	bool isSaving() { return saving.load(); }
+	bool isSaving() {
+		bool result = false;
+		for (size_t i = 0; i < numStreams; i++) {
+			if (framesSaved[i] < acquirers[i]->getFramesToAcquire()) result = true;
+		}
+		return saving && result;
+	}
 	void abortSaving() { saving = false; }
 
 	// Saving progress, in number of seconds' worth of frames saved

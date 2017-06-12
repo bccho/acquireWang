@@ -66,7 +66,7 @@ std::map<std::string, size_t> readConfig() {
 		auto parsed = nlohmann::json::parse(paramsBuffer.str());
 		params = parsed.get<std::map<std::string, size_t>>();
 
-		debugMessage("Loaded parameters from params.json", LEVEL_INFO);
+		debugMessage("Loaded parameters from params.json", DEBUG_INFO);
 	}
 	else {
 		/* Create JSON file with defaults */
@@ -90,7 +90,7 @@ std::map<std::string, size_t> readConfig() {
 		f2 << j_map.dump(4);
 		f2.close();
 
-		debugMessage("Using default parameters (saved to params.json).", LEVEL_INFO);
+		debugMessage("Using default parameters (saved to params.json).", DEBUG_INFO);
 	}
 	fParams.close();
 
@@ -133,23 +133,23 @@ void writeScalarAttribute(H5::Group group, std::string& name, double value) {
 // Recording session
 int record(std::string& saveTitle, double duration) {
 	/* Prepare acquirers */
-	debugMessage(std::to_string(cameras.size()) + " cameras", LEVEL_INFO);
+	debugMessage(std::to_string(cameras.size()) + " cameras", DEBUG_INFO);
 	std::vector<BaseAcquirer*> acquirers;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		// Make new acquirer
-		acquirers.push_back(&BaseAcquirer(camnames[i], *cameras[i]));
+		acquirers.push_back(new BaseAcquirer(camnames[i], *cameras[i]));
 	}
 
 	/* Prepare HDF5 saver */
 	// Check if file exists
 	if (fileExists(saveTitle + ".h5")) {
-		debugMessage("File already exists. Overwriting...", LEVEL_WARNING);
+		debugMessage("File already exists. Overwriting...", DEBUG_WARNING);
 	}
 	// Set up file access property list
 	H5::FileAccPropList fapl;
 	fapl.setCache(65536000, params["_rdcc_nslots"], params["_rdcc_nbytes"], 0);
 	// Create saving object
-	H5Out h5out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
+	H5Out* h5out = new H5Out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
 
 	/* Set up frame counts */
@@ -165,13 +165,17 @@ int record(std::string& saveTitle, double duration) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();
 	}
-	//preview.run();
+	preview.run();
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->endAcquisition();
 	}
 
-	// This will block on exit until acquisition and saving threads are joined
-	debugMessage("Exiting recording method", LEVEL_INFO);
+	// This will block until acquisition and saving threads are joined
+	delete h5out;
+	for (size_t i = 0; i < cameras.size(); i++) {
+		delete acquirers[i];
+	}
+	debugMessage("Exiting recording method", DEBUG_INFO);
 	return EXIT_SUCCESS;
 }
 
@@ -184,7 +188,7 @@ int main(int argc, char* argv[]) {
 	double recordingDuration(0); // minutes
 	bool fixedlen = true;
 	if (argc < 2) {
-		debugMessage("Usage:\n\tacquireWang.exe filename [numMinutes = 0]", LEVEL_MUST_SHOW);
+		debugMessage("Usage:\n\tacquireWang.exe filename [numMinutes = 0]", DEBUG_MUST_SHOW);
 		exit(EXIT_FAILURE);
 	}
 	else if (argc == 2) { // if numMinutes not specified, run without fixed length
@@ -209,10 +213,6 @@ int main(int argc, char* argv[]) {
 	H5::DSetCreatPropList pg_dcpl;
 	size_t pg_chunk_dims[frame_ndims] = { frameChunkSize, 1, params["_pgYchunk"], params["_pgXchunk"] };
 	pg_dcpl.setChunk(frame_ndims, pg_chunk_dims);
-	H5::DSetCreatPropList time_dcpl;
-	const int time_ndims = 2;
-	size_t time_chunk_dims[time_ndims] = { frameChunkSize, 1 };
-	time_dcpl.setChunk(time_ndims, time_chunk_dims);
 	if (params["_compression"] < 10) {
 		kin_dcpl.setDeflate(params["_compression"]);
 		kin_dcpl.setShuffle();
@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
 	Spinnaker::SystemPtr system = Spinnaker::System::GetInstance();
 	Spinnaker::CameraList camList = system->GetCameras();
 	int numPGcameras = camList.GetSize();
-	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), LEVEL_INFO);
+	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), DEBUG_INFO);
 
 	// Set up Kinect camera
 	// TODO: add kinect to camnames, dtypes, etc. if it exists
@@ -251,25 +251,6 @@ int main(int argc, char* argv[]) {
 		dtypes.push_back(POINTGREY_H5T);
 		dcpls.push_back(pg_dcpl);
 	}
-	for (int i = 0; i < numPGcameras; i++) {
-		std::cout << i << ": " << pgCameras[i]->IsValid() << std::endl;
-	}
-	//std::vector<Spinnaker::CameraPtr> pgCameras;
-	//for (int i = 0; i < numPGcameras; i++) {
-	//	pgCameras.push_back(camList.GetByIndex(i));
-	//	PointGreyCamera pgcam(pgCameras[i]);
-	//	cameras.push_back(&pgcam);
-	//	// TODO: Add to camnames, dtypes, etc.
-	//	camnames.push_back("pg" + std::to_string(i));
-	//	formats.push_back(GRAY_8BIT);
-	//	dtypes.push_back(POINTGREY_H5T);
-	//	dcpls.push_back(pg_dcpl);
-	//}
-
-	//for (int i = 0; i < numPGcameras; i++) {
-	//	std::cout << i << ": " << (pgCameras[i]).IsValid();
-	//	std::cout << " " << (pgCameras[i])->IsValid() << std::endl;
-	//}
 
 	/* Recording loop */
 	if (fixedlen) {
@@ -304,7 +285,7 @@ int main(int argc, char* argv[]) {
 				record(saveTitle + "-" + titleIndex, MAX_DURATION);
 			}
 			catch (...) {
-				debugMessage("Error while recording.", LEVEL_ERROR);
+				debugMessage("Error while recording.", DEBUG_ERROR);
 			}
 			iteration++;
 		}
@@ -323,12 +304,12 @@ int main(int argc, char* argv[]) {
 		system->ReleaseInstance();
 	}
 	catch (...) {
-		debugMessage("Error in Point Grey camera system finalization", LEVEL_ERROR);
+		debugMessage("Error in Point Grey camera system finalization", DEBUG_ERROR);
 	}
 
 	// Memory leak detection
 	if (_CrtDumpMemoryLeaks()) {
-		debugMessage("Memory leaks found!", LEVEL_ERROR);
+		debugMessage("Memory leaks found!", DEBUG_ERROR);
 	}
 
 	exit(EXIT_SUCCESS);

@@ -28,7 +28,7 @@ private:
 
 	bool shouldClose; // flag to indicate if the window should close
 public:
-	PreviewWindow(int width, int height, const char* title, std::vector<BaseAcquirer*> _acquirers, std::vector<format> _formats) :
+	PreviewWindow(int width, int height, const char* title, std::vector<BaseAcquirer*>& _acquirers, std::vector<format>& _formats) :
 			numBuffers(_acquirers.size()), acquirers(_acquirers), shouldClose(false),
 			buffers(numBuffers) {
 		// Populate formats[] using enum values provided
@@ -49,7 +49,7 @@ public:
 	}
 
 	~PreviewWindow() {
-		debugMessage("~PreviewWindow", LEVEL_INFO);
+		debugMessage("~PreviewWindow", DEBUG_INFO);
 	}
 
 	void run() {
@@ -79,12 +79,13 @@ public:
 
 					// Update buffers
 					for (size_t i = 0; i < numBuffers; i++) {
-						int rx = buf_w * (int) i / nRows;
+						int rx = buf_w * ((int) i / nRows);
 						int ry = buf_h * ((int) i % nRows);
 						// Get frame and show
-						BaseFrame frame;
-						if (acquirers[i]->getMostRecentGUI(frame))
+						BaseFrame frame = acquirers[i]->getMostRecentGUI();
+						if (frame.isValid()) {
 							showFrame(i, frame, rx, ry, buf_w, buf_h, acquirers[i]->getName());
+						}
 					}
 
 					//// Progress bars
@@ -113,15 +114,16 @@ public:
 				}
 			}
 		} catch (...) {
-			debugMessage("Error in GUI update loop", LEVEL_ERROR);
+			debugMessage("Error in GUI update loop", DEBUG_ERROR);
 		}
 	}
 
 	void showFrame(size_t bufInd, BaseFrame& frame, int rx, int ry, int rw, int rh, const std::string caption = "") {
-		void* frameData = std::malloc(frame.getBytes());
+		if (!frame.isValid()) return;
+		char* frameData = new char[frame.getBytes()];
 		frame.copyDataToBuffer(frameData);
 		buffers[bufInd].show(frameData, (int) frame.getWidth(), (int) frame.getHeight(), formats[bufInd], caption, rx, ry, rw, rh);
-		std::free(frameData);
+		delete[] frameData;
 	}
 
 	void close() {

@@ -9,20 +9,23 @@ BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
 		name(_name), camera(_camera), acquireThread(nullptr),
 		queue(FRAME_BUFFER_SIZE), queueGUI(FRAME_BUFFER_SIZE),
 		framesToAcquire(0), framesReceived(0), acquiring(true) {
-	debugMessage("BaseAcquirer constructor " + name, LEVEL_INFO);
+	debugMessage("BaseAcquirer constructor " + name, DEBUG_INFO);
+	// Initialize camera
+	camera.initialize();
 	// Choose default GUI downsample rate
 	GUI_downsample_rate = (int)(camera.getFPS() / DISPLAY_FRAME_RATE);
 	if (GUI_downsample_rate < 1) GUI_downsample_rate = 1;
-	// Initialize camera
-	camera.initialize();
 }
 
-BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
-		BaseAcquirer(other.name, other.camera) {}
+//BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
+//		BaseAcquirer(other.name, other.camera) {
+//	debugMessage("BaseAcquirer copy constructor " + name, DEBUG_INFO);
+//}
 
 // Destructor (finalize camera after passing to acquirer, but do not end acquisition)
 BaseAcquirer::~BaseAcquirer() {
 	// End thread
+	abortAcquisition();
 	if (acquireThread != nullptr) {
 		acquireThread->join();
 		delete acquireThread;
@@ -41,18 +44,32 @@ void BaseAcquirer::run() {
 	acquireThread = new std::thread(&BaseAcquirer::acquireLoop, this);
 }
 
-bool BaseAcquirer::dequeue(BaseFrame& frame) {
-	return queue.try_dequeue(frame);
+BaseFrame BaseAcquirer::dequeue() {
+	BaseFrame result;
+	debugMessage("dequeue() " + name + ": queue.peek() = " + std::to_string((long long)queue.peek()), DEBUG_INFO);
+	//if (queue.peek() != nullptr)
+	//	debugMessage("          frame valid? " + std::to_string(queue.peek()->isValid()), DEBUG_INFO);
+	queue.try_dequeue(result);
+	debugMessage("          " + name + ": queue.peek() = " + std::to_string((long long)queue.peek()), DEBUG_INFO);
+	debugMessage("          frame valid? " + std::to_string(result.isValid()), DEBUG_INFO);
+	if (result.isValid()) {
+		debugMessage("dequeued valid frame", DEBUG_INFO);
+	}
+	return result;
 }
 
-bool BaseAcquirer::dequeueGUI(BaseFrame& frame) {
-	return queueGUI.try_dequeue(frame);
+BaseFrame BaseAcquirer::dequeueGUI() {
+	BaseFrame result;
+	queueGUI.try_dequeue(result);
+	return result;
 }
 
-bool BaseAcquirer::getMostRecentGUI(BaseFrame& frame) {
-	bool result = false;
+BaseFrame BaseAcquirer::getMostRecentGUI() {
+	BaseFrame result;
 	// While there are things on the queue, dequeue
-	while (!isQueueGUIEmpty()) { result = dequeueGUI(frame); }
+	while (!isQueueGUIEmpty()) {
+		result = dequeueGUI();
+	}
 	return result;
 }
 
@@ -79,7 +96,7 @@ void BaseAcquirer::reset() {
 // Puts received frame onto thread-safe queue
 bool BaseAcquirer::enqueueFrame(BaseFrame& frame) {
 	bool result = queue.enqueue(frame);
-	if (!result) debugMessage("[" + std::to_string(framesReceived.load()) + "] Failed to enqueue " + name, LEVEL_ERROR);
+	if (!result) debugMessage("[" + std::to_string(framesReceived.load()) + "] Failed to enqueue " + name, DEBUG_ERROR);
 	// Update number of frames received
 	framesReceived++;
 	return result;
@@ -102,36 +119,37 @@ void BaseAcquirer::emptyQueueGUI() {
 
 void BaseAcquirer::getAndEnqueue() {
 	try {
-		std::pair<bool, BaseFrame> received = camera.getFrame(); // get frame from camera
+		BaseFrame received = camera.getFrame(); // get frame from camera
 		double timestamp = getClockStamp(); // get timestamp when received
-		if (received.first) {
+		if (received.isValid()) { // i.e. success
 			// Get frame and set timestamp
-			BaseFrame frame = received.second;
-			frame.setTimestamp(timestamp);
-			// Enqueue for GUI (no copy needed?)
+			received.setTimestamp(timestamp);
+			// Enqueue for GUI (implicit copy)
 			if (framesReceived % GUI_downsample_rate == 0) {
-				enqueueFrameGUI(frame);
+				enqueueFrameGUI(received);
 			}
-			enqueueFrame(frame);
+			enqueueFrame(received);
+			debugMessage("getAndEnqueue() " + name + ": queue.peek() = " + std::to_string((long long) queue.peek()), DEBUG_INFO);
 		} else {
-			debugMessage("Failed to receive " + name + " frame.", LEVEL_ERROR);
+			debugMessage("Failed to receive " + name + " frame.", DEBUG_ERROR);
 		}
 	}
 	catch (...) {
-		debugMessage("Unhandled exception in getAndEnqueue() for " + name + "!", LEVEL_ERROR);
+		debugMessage("Unhandled exception in getAndEnqueue() for " + name + "!", DEBUG_ERROR);
 	}
 }
 
 void BaseAcquirer::acquireLoop() {
 	while (acquiring) {
+		//debugMessage("acquireLoop " + getName(), DEBUG_INFO);
 		// If not indefinitely acquiring, and we have acquired more than we need, stop acquiring
 		if (framesToAcquire > 0 && framesReceived >= framesToAcquire) break;
 		// Otherwise, block until new frame arrives on camera, then enqueue
 		try { getAndEnqueue(); }
 		catch (...) {
-			debugMessage("[" + std::to_string(framesReceived.load()) + "] Error receiving " + name + " frame", LEVEL_ERROR);
+			debugMessage("[" + std::to_string(framesReceived.load()) + "] Error receiving " + name + " frame", DEBUG_ERROR);
 		}
 	}
 	debugMessage("[!] Exiting " + name + " acquisition thread (acquired " +
-		std::to_string(framesReceived) + " frames).", LEVEL_IMPORTANT_INFO);
+		std::to_string(framesReceived) + " frames).", DEBUG_IMPORTANT_INFO);
 }

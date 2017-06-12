@@ -54,7 +54,9 @@ public:
 	// Constructor (do not initialize camera before passing to acquirer)
 	BaseAcquirer(const std::string& _name, BaseCamera& _camera);
 	// Copy constructor (shallow copy)
-	BaseAcquirer(const BaseAcquirer& other);
+	//BaseAcquirer(const BaseAcquirer& other);
+	// TODO: I should really change this (rule of 3) to make deep copy
+
 	// Destructor (do not finalize camera after passing to acquirer)
 	virtual ~BaseAcquirer();
 
@@ -71,9 +73,9 @@ public:
 	size_t getQueueGUISizeApprox() { return queueGUI.size_approx(); }
 	bool isQueueEmpty() { return queue.peek() == nullptr; }
 	bool isQueueGUIEmpty() { return queueGUI.peek() == nullptr; }
-	bool dequeue(BaseFrame& frame); // Return true if successful
-	bool dequeueGUI(BaseFrame& frame);
-	bool getMostRecentGUI(BaseFrame& frame);
+	BaseFrame dequeue(); // Return true if successful
+	BaseFrame dequeueGUI();
+	BaseFrame getMostRecentGUI();
 
 	/* Methods */
 	// Camera access methods (for pointer safety, we do not permit direct access to the camera;
@@ -84,6 +86,8 @@ public:
 	size_t getHeight() { return camera.getHeight(); }
 	size_t getChannels() { return camera.getChannels(); }
 	size_t getFrameSize() { return camera.getFrameSize(); }
+	size_t getBytesPerPixel() { return camera.getBytesPerPixel(); }
+	size_t getFrameBytes() { return camera.getBytes(); }
 	double getFPS() { return camera.getFPS(); }
 	std::vector<size_t> getDims() {
 		std::vector<size_t> res = { camera.getChannels(), camera.getHeight(), camera.getWidth() };
@@ -102,5 +106,6 @@ public:
 	bool shouldDraw() { return readyForGUI() || (framesReceived == framesToAcquire); }
 
 	// Assignment operator override
-	BaseAcquirer operator=(const BaseAcquirer& other) { return BaseAcquirer(other); } // note: shallow copy!
+	//BaseAcquirer operator=(const BaseAcquirer& other) { return BaseAcquirer(other); } // note: shallow copy!
+	// TODO: I should really change this (rule of 3)
 };

@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <deque>
 #pragma warning(pop)
 #include "acquirer.h"
 
@@ -16,12 +17,12 @@ protected:
 	const size_t numStreams; // Number of acquirers/streams
 	const size_t frameChunkSize; // Number of frames per "chunk" to write at one time
 								 // (some applications are faster when frames are written in chunks)
-	std::vector< std::vector<BaseFrame> > writeBuffers; // Write buffer to pull frames off thread-safe queues
+	std::vector< std::deque<BaseFrame> > writeBuffers; // Write buffer to pull frames off thread-safe queues
 	std::vector<size_t> framesSaved; // Numbers of frames saved for each acquirer/stream
 	std::atomic<bool> saving; // Flag to indicate if saving should abort
+	std::vector<BaseAcquirer*>& acquirers; // Acquirers for reference
 private:
 	std::thread* saveThread; // Thread for saving
-	std::vector<BaseAcquirer*>& acquirers; // Acquirers for reference
 
 	// Methods for thread
 	void moveFramesToWriteBuffers(size_t acqIndex); // Returns true if successful
@@ -43,5 +44,7 @@ public:
 
 	// Saving progress, in number of seconds' worth of frames saved
 	double getSavingProgress(size_t acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
+
+	// TODO: I should really add a copy constructor and assignment operator (rule of 3)
 };
 

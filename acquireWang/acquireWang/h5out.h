@@ -53,10 +53,10 @@ public:
 			// Prepare dataspace
 			size_t* dims = new size_t[ndims];
 			dims[0] = frameChunkSize;
-			dims[1] = frameDims[i][1]; dims[2] = frameDims[i][2]; dims[3] = frameDims[i][3];
+			dims[1] = frameDims[i][0]; dims[2] = frameDims[i][0]; dims[3] = frameDims[i][0];
 			size_t* maxdims = new size_t[ndims];
 			maxdims[0] = H5S_UNLIMITED;
-			maxdims[1] = frameDims[i][1]; maxdims[2] = frameDims[i][2]; maxdims[3] = frameDims[i][3];
+			maxdims[1] = frameDims[i][0]; maxdims[2] = frameDims[i][1]; maxdims[3] = frameDims[i][2];
 			DataSpace* dataspace = new DataSpace(ndims, dims, maxdims);
 
 			// Create dataset
@@ -87,13 +87,16 @@ public:
 		}
 	}
 
+	// This does not modify the contents of the write buffer
 	virtual bool writeFrames(size_t numFrames, size_t bufIndex) {
+		bool success = true;
 		/* Write frame */
 		try {
 			// Extend dataset
 			size_t* newdims = new size_t[ndims];
 			newdims[0] = framesSaved[bufIndex] + numFrames;
-			newdims[1] = frameDims[bufIndex][1]; newdims[2] = frameDims[bufIndex][2]; newdims[3] = frameDims[bufIndex][3];
+			newdims[1] = frameDims[bufIndex][0]; newdims[2] = frameDims[bufIndex][1]; newdims[3] = frameDims[bufIndex][2];
+			debugMessage("newdims = [" + std::to_string(newdims[0]) + ", " + std::to_string(newdims[1]) + ", " + std::to_string(newdims[2]) + ", " + std::to_string(newdims[3]) + "]", DEBUG_INFO);
 			datasets[bufIndex].extend(newdims);
 			DataSpace dataspace = datasets[bufIndex].getSpace();
 			// Calculate offset
@@ -102,16 +105,22 @@ public:
 			// Select hyperslab in dataset
 			size_t* selectdims = new size_t[ndims];
 			selectdims[0] = numFrames;
-			selectdims[1] = frameDims[bufIndex][1]; selectdims[2] = frameDims[bufIndex][2]; selectdims[3] = frameDims[bufIndex][3];
+			selectdims[1] = frameDims[bufIndex][0]; selectdims[2] = frameDims[bufIndex][1]; selectdims[3] = frameDims[bufIndex][2];
 			DataSpace filespace(dataspace);
 			filespace.selectHyperslab(H5S_SELECT_SET, selectdims, offset);
 			// Define memory space
 			DataSpace memspace(ndims, selectdims, NULL);
 
 			// Write
-			datasets[bufIndex].write(writeBuffers[bufIndex].data(), datatypes[bufIndex], memspace, filespace);
-			framesSaved[bufIndex] += numFrames;
+			size_t frameBytes = acquirers[bufIndex]->getFrameBytes();
+			char* buffer = new char[frameBytes * numFrames];
+			for (size_t i = 0; i < numFrames; i++) {
+				writeBuffers[bufIndex][i].copyDataToBuffer(buffer + i * frameBytes);
+			}
+			datasets[bufIndex].write(buffer, datatypes[bufIndex], memspace, filespace);
+			//framesSaved[bufIndex] += numFrames;
 
+			delete[] buffer;
 			delete[] newdims;
 			delete[] offset;
 			delete[] selectdims;
@@ -129,7 +138,7 @@ public:
 			size_t* newdims = new size_t[2];
 			newdims[0] = framesSaved[bufIndex] + numFrames;
 			newdims[1] = 1;
-			datasets[bufIndex].extend(newdims);
+			tsdatasets[bufIndex].extend(newdims);
 			DataSpace dataspace = tsdatasets[bufIndex].getSpace();
 			// Calculate offset
 			size_t* offset = new size_t[2]();
@@ -144,9 +153,14 @@ public:
 			DataSpace memspace(2, selectdims, NULL);
 
 			// Write
-			tsdatasets[bufIndex].write(writeBuffers[bufIndex].data(), datatypes[bufIndex], memspace, filespace);
+			double* buffer = new double[numFrames];
+			for (size_t i = 0; i < numFrames; i++) {
+				*(buffer + i) = writeBuffers[bufIndex][i].getTimestamp();
+			}
+			datasets[bufIndex].write(buffer, TIMESTAMP_H5T, memspace, filespace);
 			framesSaved[bufIndex] += numFrames;
 
+			delete[] buffer;
 			delete[] newdims;
 			delete[] offset;
 			delete[] selectdims;
@@ -162,7 +176,7 @@ public:
 	}
 
 	~H5Out() {
-		debugMessage("~H5Out", LEVEL_INFO);
+		debugMessage("~H5Out", DEBUG_INFO);
 		for (int i = 0; i < numStreams; i++) datasets[i].close();
 		file.close();
 	}

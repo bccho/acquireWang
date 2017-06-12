@@ -9,28 +9,33 @@ const bool DEBUGGING = false;
 
 class BaseCamera {
 protected:
-	size_t width, height, channels;
+	size_t width, height, channels, bytesPerPixel;
 	double fps;
 public:
 	// Default constructor to give default values to members
-	BaseCamera() : width(0), height(0), channels(0), fps(0) {}
+	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0) {}
 	virtual ~BaseCamera() {
-		debugMessage("~BaseCamera", LEVEL_INFO);
+		endAcquisition();
+		finalize();
+		debugMessage("~BaseCamera", DEBUG_INFO);
 	}
 
 	// These methods are called externally, and do nothing by default.
 	// Override if you need them to do something.
-	void initialize() {};
-	void finalize() {};
-	void beginAcquisition() {};
-	void endAcquisition() {};
+	virtual void initialize() {};
+	virtual void finalize() {};
+	virtual void beginAcquisition() {};
+	virtual void endAcquisition() {};
 
-	// Must return a valid frame, so must be overridden
-	virtual std::pair<bool, BaseFrame> getFrame() = 0;
+	// [frame] should already have the right dimensions, etc.
+	// (getFrame only fills the data buffer of the frame)
+	virtual BaseFrame getFrame() = 0;
 
 	size_t getWidth() { return width; }
 	size_t getHeight() { return height; }
 	size_t getChannels() { return channels; }
+	size_t getBytesPerPixel() { return bytesPerPixel; }
 	size_t getFrameSize() { return width * height * channels; }
+	size_t getBytes() { return width * height * channels * bytesPerPixel; }
 	double getFPS() { return fps; }
 };

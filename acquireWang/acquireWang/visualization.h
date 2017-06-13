@@ -225,7 +225,10 @@ public:
 		glEnd();
 	}
 
-	static void progress_bar(const rect & r, const double progress, const std::string & label) {
+	static void progress_bar(const rect & r, const double _progress, const std::string & label) {
+		double progress = _progress;
+		if (progress < 0) progress = 0;
+		if (progress > 1) progress = 1;
 		fill_rect(r, { 0.9f, 0.9f, 0.9f });
 		rect r_inside = r.shrink(2);
 		r_inside.x1 = (int)(r_inside.x0 + (r_inside.x1 - r_inside.x0) * progress);

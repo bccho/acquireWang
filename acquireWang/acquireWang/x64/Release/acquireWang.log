@@ -1,10 +1,11 @@
 ﻿  acquirer.cpp
+  debug.cpp
   previewwindow.cpp
   saver.cpp
   main.cpp
   timer.cpp
   Generating code
-  All 2448 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 2662 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.exe
   acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.pdb (Full PDB)

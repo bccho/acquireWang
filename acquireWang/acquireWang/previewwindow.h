@@ -10,6 +10,8 @@
 #include "saver.h"
 
 enum format { DEPTH_16BIT, GRAY_8BIT, GRAY_16BIT };
+const int PROGRESSBAR_HEIGHT = 20;
+const int PROGRESSBAR_GAP = 5;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * This class provides a wrapper around GLFW methods to make a basic camera
@@ -21,7 +23,6 @@ class PreviewWindow {
 private:
 	size_t numBuffers;
 	int nRows, nCols;
-	const int PROGRESSBAR_HEIGHT = 30;
 	GLFWwindow* win; // window handle
 	std::vector<stream_format> formats; // array of stream formats for displaying frames
 	std::vector<texture_buffer> buffers; // array of buffers to draw items
@@ -52,7 +53,7 @@ public:
 	}
 
 	~PreviewWindow() {
-		debugMessage("~PreviewWindow", DEBUG_INFO);
+		debugMessage("~PreviewWindow", DEBUG_HIDDEN_INFO);
 	}
 
 	void run() {
@@ -78,20 +79,40 @@ public:
 					glOrtho(0, w, h, 0, -1, +1);
 
 					int buf_w = w / nCols;
-					int buf_h = (h - PROGRESSBAR_HEIGHT * 2 - 10) / nRows;
+					int buf_h = h / nRows;
 
 					// Update buffers
 					for (size_t i = 0; i < numBuffers; i++) {
-						int rx = buf_w * ((int) i / nRows);
-						int ry = buf_h * ((int) i % nRows);
+						// Coordinates
+						int rx = buf_w * ((int) i / nRows); // left of frame
+						int ry = buf_h * ((int) i % nRows); // top of frame
+						int x1 = rx + PROGRESSBAR_GAP; // left of progress bars
+						int x2 = rx + buf_w - PROGRESSBAR_GAP; // right of progress bars
+						int y0 = ry + buf_h - PROGRESSBAR_HEIGHT * 2 - PROGRESSBAR_GAP * 3; // bottom of frame
+						int y1 = y0 + PROGRESSBAR_GAP; // top of first bar
+						int y2 = y1 + PROGRESSBAR_HEIGHT; // bottom of first bar
+						int y3 = y2 + PROGRESSBAR_GAP; // top of second bar
+						int y4 = y3 + PROGRESSBAR_HEIGHT; // bottom of second bar
 						// Get frame and show
 						BaseFrame frame = acquirers[i]->getMostRecentGUI();
 						if (frame.isValid()) {
-							showFrame(i, frame, rx, ry, buf_w, buf_h, acquirers[i]->getName());
+							showFrame(i, frame, rx, ry, buf_w, y0 - ry, acquirers[i]->getName());
+						}
+						// Progress bars
+						if (acquirers[i]->getFramesToAcquire() > 0) {
+							double acquisitionProgress = acquirers[i]->getAcquisitionProgress() / acquirers[i]->getSecondsToAcquire();
+							GUI::progress_bar({ x1, y1, x2, y2 }, acquisitionProgress, acquirers[i]->getName() + " acquisition progress");
+
+							double savingProgress = saver.getSavingProgress(i) / acquirers[i]->getSecondsToAcquire();
+							GUI::progress_bar({ x1, y3, x2, y4 }, savingProgress, acquirers[i]->getName() + " saving progress");
+
+							if (acquisitionProgress < savingProgress) {
+								//debugMessage("Lol wut", DEBUG_INFO);
+							}
 						}
 					}
 
-					//// Progress bars
+					// Progress bars
 					//double acqProgress = 0;
 					//int cnt = 0;
 					//for (size_t i = 0; i < numBuffers; i++) {

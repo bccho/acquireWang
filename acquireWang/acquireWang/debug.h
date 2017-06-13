@@ -3,6 +3,9 @@
 #include <iostream>
 #include <string>
 #pragma warning(pop)
+#include "debugtimers.h"
+
+extern DebugTimers timers;
 
 enum DEBUG_LEVELS {
 	DEBUG_TRIVIAL_INFO = 20,

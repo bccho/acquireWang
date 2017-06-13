@@ -66,7 +66,7 @@ std::map<std::string, size_t> readConfig() {
 		auto parsed = nlohmann::json::parse(paramsBuffer.str());
 		params = parsed.get<std::map<std::string, size_t>>();
 
-		debugMessage("Loaded parameters from params.json", DEBUG_INFO);
+		debugMessage("Loaded parameters from params.json", DEBUG_HIDDEN_INFO);
 	}
 	else {
 		/* Create JSON file with defaults */
@@ -133,7 +133,7 @@ void writeScalarAttribute(H5::Group group, std::string& name, double value) {
 // Recording session
 int record(std::string& saveTitle, double duration) {
 	/* Prepare acquirers */
-	debugMessage(std::to_string(cameras.size()) + " cameras", DEBUG_INFO);
+	debugMessage(std::to_string(cameras.size()) + " cameras", DEBUG_HIDDEN_INFO);
 	std::vector<BaseAcquirer*> acquirers;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		// Make new acquirer
@@ -159,23 +159,34 @@ int record(std::string& saveTitle, double duration) {
 	}
 
 	/* Start GUI */
-	PreviewWindow preview(1280, 960, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
+	PreviewWindow preview(960, 720, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
 		acquirers, *h5out, formats);
+	timers.pause(1);
+	timers.start(3);
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();
 	}
+	//// Wait for acquirers to be ready
+	//while (!std::all_of(acquirers.begin(), acquirers.end(), [](BaseAcquirer* acq) { return acq->ready(); })) {}
 	preview.run();
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->endAcquisition();
 	}
+	timers.pause(3);
+	timers.start(2);
 
 	// This will block until acquisition and saving threads are joined
+	for (size_t i = 0; i < cameras.size(); i++) {
+		acquirers[i]->abortAcquisition();
+	}
+	h5out->abortSaving();
+
 	delete h5out;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		delete acquirers[i];
 	}
-	debugMessage("Exiting recording method", DEBUG_INFO);
+	debugMessage("Exiting recording method", DEBUG_HIDDEN_INFO);
 	return EXIT_SUCCESS;
 }
 
@@ -213,7 +224,7 @@ int main(int argc, char* argv[]) {
 	H5::DSetCreatPropList pg_dcpl;
 	size_t pg_chunk_dims[frame_ndims] = { frameChunkSize, 1, params["_pgYchunk"], params["_pgXchunk"] };
 	pg_dcpl.setChunk(frame_ndims, pg_chunk_dims);
-	if (params["_compression"] < 10) {
+	if (params["_compression"] > 0) {
 		kin_dcpl.setDeflate(params["_compression"]);
 		kin_dcpl.setShuffle();
 		pg_dcpl.setDeflate(params["_compression"]);
@@ -233,10 +244,10 @@ int main(int argc, char* argv[]) {
 	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), DEBUG_INFO);
 
 	// Set up Kinect camera
-	// TODO: add kinect to camnames, dtypes, etc. if it exists
+	// TODO: make a data structure to hold camnames, dtypes, etc.
 	cameras.push_back(new KinectCamera);
 	camnames.push_back("kinect");
-	formats.push_back(DEPTH_16BIT);
+	formats.push_back(DEPTH_16BIT); // TODO: combine formats[] and dtypes[]
 	dtypes.push_back(KINECT_H5T);
 	dcpls.push_back(kin_dcpl);
 
@@ -254,7 +265,17 @@ int main(int argc, char* argv[]) {
 
 	/* Recording loop */
 	if (fixedlen) {
+		timers.start(0);
+		timers.start(1);
 		record(saveTitle, recordingDuration);
+		timers.pause(2);
+		timers.pause(0);
+		debugMessage("Overall: " + std::to_string(timers.getTotalTime(0)), DEBUG_INFO);
+		debugMessage("Init:    " + std::to_string(timers.getTotalTime(1)), DEBUG_INFO);
+		debugMessage("Cleanup: " + std::to_string(timers.getTotalTime(2)), DEBUG_INFO);
+		debugMessage("Acq:     " + std::to_string(timers.getTotalTime(3)), DEBUG_INFO);
+		debugMessage("Saving:  " + std::to_string(timers.getTotalTime(4)), DEBUG_INFO);
+		debugMessage("Copying: " + std::to_string(timers.getTotalTime(5)), DEBUG_INFO);
 	}
 	else {
 		const double MAX_DURATION = 20.0; // Set upper limit so we don't fill the hard drive
@@ -282,7 +303,17 @@ int main(int argc, char* argv[]) {
 
 			// Record!
 			try {
+				timers.start(0);
+				timers.start(1);
 				record(saveTitle + "-" + titleIndex, MAX_DURATION);
+				timers.pause(2);
+				timers.pause(0);
+				debugMessage("Overall: " + std::to_string(timers.getTotalTime(0)), DEBUG_INFO);
+				debugMessage("Init:    " + std::to_string(timers.getTotalTime(1)), DEBUG_INFO);
+				debugMessage("Cleanup: " + std::to_string(timers.getTotalTime(2)), DEBUG_INFO);
+				debugMessage("Acq:     " + std::to_string(timers.getTotalTime(3)), DEBUG_INFO);
+				debugMessage("Saving:  " + std::to_string(timers.getTotalTime(4)), DEBUG_INFO);
+				debugMessage("Copying: " + std::to_string(timers.getTotalTime(5)), DEBUG_INFO);
 			}
 			catch (...) {
 				debugMessage("Error while recording.", DEBUG_ERROR);

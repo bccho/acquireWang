@@ -47,10 +47,16 @@ public:
 		}
 		return saving && result;
 	}
-	void abortSaving() { saving = false; }
+	void abortSaving() {
+		saving = false;
+		if (saveThread != nullptr) {
+			saveThread->join();
+			delete saveThread;
+		}
+	}
 
 	// Saving progress, in number of seconds' worth of frames saved
-	double getSavingProgress(size_t acqIndex) { return framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
+	double getSavingProgress(size_t acqIndex) { return (double) framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
 
 	// TODO: I should really add a copy constructor and assignment operator (rule of 3)
 };

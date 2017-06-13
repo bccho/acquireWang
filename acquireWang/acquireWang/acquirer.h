@@ -50,6 +50,9 @@ private:
 	void getAndEnqueue();
 	void acquireLoop();
 
+	// Debug
+	int cnt = 0;
+
 public:
 	// Constructor (do not initialize camera before passing to acquirer)
 	BaseAcquirer(const std::string& _name, BaseCamera& _camera);
@@ -65,8 +68,15 @@ public:
 	size_t getFramesReceived() { return framesReceived; }
 	size_t getFramesToAcquire() { return framesToAcquire; }
 	void setFramesToAcquire(size_t _framesToAcquire) { framesToAcquire = _framesToAcquire; }
+	double getSecondsToAcquire() { return (double) framesToAcquire / camera.getFPS(); }
 	bool isAcquiring() { return acquiring && framesReceived < framesToAcquire; }
-	void abortAcquisition() { acquiring = false; }
+	void abortAcquisition() {
+		acquiring = false;
+		if (acquireThread != nullptr) {
+			acquireThread->join();
+			delete acquireThread;
+		}
+	}
 	
 	/* Queue APIs */
 	size_t getQueueSizeApprox() { return queue.size_approx(); }

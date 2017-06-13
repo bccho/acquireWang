@@ -117,7 +117,9 @@ public:
 			for (size_t i = 0; i < numFrames; i++) {
 				writeBuffers[bufIndex][i].copyDataToBuffer(buffer + i * frameBytes);
 			}
+			timers.start(4);
 			datasets[bufIndex].write(buffer, datatypes[bufIndex], memspace, filespace);
+			timers.pause(4);
 			//framesSaved[bufIndex] += numFrames;
 
 			delete[] buffer;
@@ -132,7 +134,7 @@ public:
 			return false;
 		}
 
-		/* Write timestamp */ // TODO: dedup code! Also in constructor
+		/* Write timestamp */ // TODO: dedup code! Also in constructor (i.e. make separate functions)
 		try {
 			// Extend dataset
 			size_t* newdims = new size_t[2];
@@ -157,7 +159,9 @@ public:
 			for (size_t i = 0; i < numFrames; i++) {
 				*(buffer + i) = writeBuffers[bufIndex][i].getTimestamp();
 			}
+			timers.start(4);
 			tsdatasets[bufIndex].write(buffer, TIMESTAMP_H5T, memspace, filespace);
+			timers.pause(4);
 			framesSaved[bufIndex] += numFrames;
 
 			delete[] buffer;
@@ -176,7 +180,7 @@ public:
 	}
 
 	~H5Out() {
-		debugMessage("~H5Out", DEBUG_INFO);
+		debugMessage("~H5Out", DEBUG_HIDDEN_INFO);
 		for (int i = 0; i < numStreams; i++) datasets[i].close();
 		file.close();
 	}

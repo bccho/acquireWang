@@ -15,11 +15,8 @@ BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer*>& _acquir
 
 BaseSaver::~BaseSaver() {
 	debugMessage("~BaseSaver", DEBUG_HIDDEN_INFO);
-	// End thread
-	abortSaving();
-	saveThread->join();
+	if (saving) abortSaving();
 	debugMessage("~BaseSaver: joined", DEBUG_HIDDEN_INFO);
-	delete saveThread;
 }
 
 /* * * * * * * * * *
@@ -27,9 +24,10 @@ BaseSaver::~BaseSaver() {
  * * * * * * * * * */
 
 void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
-	BaseFrame dequeued = acquirers[acqIndex]->dequeue();
-	if (dequeued.isValid()) {
-		writeBuffers[acqIndex].push_back(dequeued);
+	for (size_t i = 0; i < frameChunkSize; i++) {
+		BaseFrame dequeued = acquirers[acqIndex]->dequeue();
+		if (dequeued.isValid()) { writeBuffers[acqIndex].push_back(dequeued); }
+		else break;
 	}
 }
 
@@ -60,7 +58,7 @@ void BaseSaver::writeLoop() {
 
 		/* Now, we deal only with the acquirer with the least saving progress */
 		BaseAcquirer* acq = acquirers[leastIndex];
-		std::deque<BaseFrame> buf = writeBuffers[leastIndex];
+		std::deque<BaseFrame>& buf = writeBuffers[leastIndex];
 
 		// If we are at the end of acquisition
 		if (acq->getFramesToAcquire() > 0 && // (i.e. if not indefinite acquisition
@@ -74,9 +72,8 @@ void BaseSaver::writeLoop() {
 			else debugMessage("Failed to write chunk for acquirer #" + std::to_string(leastIndex), DEBUG_ERROR);
 		}
 		
-		// ... or if there are enough frames in the buffer to write a chunk...
-		else if (buf.size() >= frameChunkSize && // (i.e. enough frames in buffer
-					acq->isAcquiring()) { // and we are still acquiring)
+		// Otherwise, if there are enough frames in the buffer to write a chunk...
+		else if (buf.size() >= frameChunkSize) {
 			// Write frames to file
 			bool res = writeFrames(frameChunkSize, leastIndex);
 			// Remove those frames from the write buffer if successful

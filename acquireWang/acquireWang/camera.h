@@ -17,7 +17,7 @@ public:
 	virtual ~BaseCamera() {
 		endAcquisition();
 		finalize();
-		debugMessage("~BaseCamera", DEBUG_INFO);
+		debugMessage("~BaseCamera", DEBUG_HIDDEN_INFO);
 	}
 
 	// These methods are called externally, and do nothing by default.

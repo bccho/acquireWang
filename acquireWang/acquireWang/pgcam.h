@@ -52,21 +52,21 @@ private:
 
 			// Check initialized and acquiring; if not, try to fix it
 			if (!pCam->IsInitialized()) {
-				debugMessage("Not initialized", DEBUG_HIDDEN_INFO);
+				debugMessage("Was not initialized", DEBUG_HIDDEN_INFO);
 				initialize();
 			}
 			if (ensureAcquiring && !pCam->IsStreaming()) {
-				debugMessage("Not acquiring", DEBUG_HIDDEN_INFO);
+				debugMessage("Was not acquiring", DEBUG_HIDDEN_INFO);
 				pCam->BeginAcquisition();
 			}
 
 			// Check again and return
 			if (!pCam->IsInitialized()) {
-				debugMessage("Still not initialized", DEBUG_HIDDEN_INFO);
+				debugMessage("Still not initialized", DEBUG_ERROR);
 				return -2; // still not initialized
 			}
 			if (ensureAcquiring && !pCam->IsStreaming()) {
-				debugMessage("Still not acquiring", DEBUG_HIDDEN_INFO);
+				debugMessage("Still not acquiring", DEBUG_ERROR);
 				return -3; // still not streaming
 			}
 			return 0;

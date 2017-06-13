@@ -90,11 +90,11 @@ public:
 		fps = 30;
 	}
 	~KinectCamera() override {
-		debugMessage("~KinectCamera", DEBUG_INFO);
+		debugMessage("~KinectCamera", DEBUG_HIDDEN_INFO);
 	}
 
 	void initialize() override {
-		debugMessage("kinect initialize()", DEBUG_INFO);
+		debugMessage("kinect initialize()", DEBUG_HIDDEN_INFO);
 		HRESULT hr = kinectSensor->Open();
 		handleHRESULT(hr, "opening Kinect sensor");
 	}

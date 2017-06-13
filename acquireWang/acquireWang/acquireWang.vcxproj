@@ -119,6 +119,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="acquirer.cpp" />
+    <ClCompile Include="debug.cpp" />
     <ClCompile Include="previewwindow.cpp" />
     <ClCompile Include="saver.cpp" />
     <ClCompile Include="main.cpp" />
@@ -135,6 +136,7 @@
     <ClInclude Include="pgcam.h" />
     <ClInclude Include="acquirer.h" />
     <ClInclude Include="timer.h" />
+    <ClInclude Include="debugtimers.h" />
     <ClInclude Include="visualization.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

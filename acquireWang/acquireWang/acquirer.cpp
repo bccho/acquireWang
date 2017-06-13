@@ -9,7 +9,7 @@ BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
 		name(_name), camera(_camera), acquireThread(nullptr),
 		queue(FRAME_BUFFER_SIZE), queueGUI(FRAME_BUFFER_SIZE),
 		framesToAcquire(0), framesReceived(0), acquiring(true) {
-	debugMessage("BaseAcquirer constructor " + name, DEBUG_INFO);
+	debugMessage("BaseAcquirer constructor " + name, DEBUG_HIDDEN_INFO);
 	// Initialize camera
 	camera.initialize();
 	// Choose default GUI downsample rate
@@ -19,17 +19,13 @@ BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
 
 //BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
 //		BaseAcquirer(other.name, other.camera) {
-//	debugMessage("BaseAcquirer copy constructor " + name, DEBUG_INFO);
+//	debugMessage("BaseAcquirer copy constructor " + name, DEBUG_HIDDEN_INFO);
 //}
 
 // Destructor (finalize camera after passing to acquirer, but do not end acquisition)
 BaseAcquirer::~BaseAcquirer() {
 	// End thread
-	abortAcquisition();
-	if (acquireThread != nullptr) {
-		acquireThread->join();
-		delete acquireThread;
-	}
+	if (acquiring) abortAcquisition();
 	// Finalize camera
 	camera.finalize();
 	// Empty queues
@@ -46,8 +42,11 @@ void BaseAcquirer::run() {
 
 BaseFrame BaseAcquirer::dequeue() {
 	BaseFrame result;
-	queue.try_dequeue(result);
-	if (result.isValid()) { debugMessage("dequeued valid frame", DEBUG_HIDDEN_INFO); }
+	queue.wait_dequeue_timed(result, TIME_WAIT_QUEUE);
+	if (result.isValid()) {
+		cnt++;
+		debugMessage(name + ": dequeued " + std::to_string(cnt) + " valid frames", DEBUG_HIDDEN_INFO);
+	}
 	return result;
 }
 

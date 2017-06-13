@@ -25,7 +25,9 @@ BaseSaver::~BaseSaver() {
 
 void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
 	for (size_t i = 0; i < frameChunkSize; i++) {
+		timers.start(8);
 		BaseFrame dequeued = acquirers[acqIndex]->dequeue();
+		timers.pause(8);
 		if (dequeued.isValid()) { writeBuffers[acqIndex].push_back(dequeued); }
 		else break;
 	}
@@ -34,9 +36,11 @@ void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
 void BaseSaver::writeLoop() {
 	while (saving) {
 		// Move one waiting frame to write buffers for each stream
+		timers.start(7);
 		for (size_t i = 0; i < numStreams; i++) {
 			moveFramesToWriteBuffers(i);
 		}
+		timers.pause(7);
 		
 		double leastSoFar = DBL_MAX;
 		size_t leastIndex = 0;

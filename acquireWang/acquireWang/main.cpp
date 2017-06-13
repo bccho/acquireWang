@@ -270,12 +270,7 @@ int main(int argc, char* argv[]) {
 		record(saveTitle, recordingDuration);
 		timers.pause(2);
 		timers.pause(0);
-		debugMessage("Overall: " + std::to_string(timers.getTotalTime(0)), DEBUG_INFO);
-		debugMessage("Init:    " + std::to_string(timers.getTotalTime(1)), DEBUG_INFO);
-		debugMessage("Cleanup: " + std::to_string(timers.getTotalTime(2)), DEBUG_INFO);
-		debugMessage("Acq:     " + std::to_string(timers.getTotalTime(3)), DEBUG_INFO);
-		debugMessage("Saving:  " + std::to_string(timers.getTotalTime(4)), DEBUG_INFO);
-		debugMessage("Copying: " + std::to_string(timers.getTotalTime(5)), DEBUG_INFO);
+		printDebugTimerInfo();
 	}
 	else {
 		const double MAX_DURATION = 20.0; // Set upper limit so we don't fill the hard drive
@@ -308,12 +303,7 @@ int main(int argc, char* argv[]) {
 				record(saveTitle + "-" + titleIndex, MAX_DURATION);
 				timers.pause(2);
 				timers.pause(0);
-				debugMessage("Overall: " + std::to_string(timers.getTotalTime(0)), DEBUG_INFO);
-				debugMessage("Init:    " + std::to_string(timers.getTotalTime(1)), DEBUG_INFO);
-				debugMessage("Cleanup: " + std::to_string(timers.getTotalTime(2)), DEBUG_INFO);
-				debugMessage("Acq:     " + std::to_string(timers.getTotalTime(3)), DEBUG_INFO);
-				debugMessage("Saving:  " + std::to_string(timers.getTotalTime(4)), DEBUG_INFO);
-				debugMessage("Copying: " + std::to_string(timers.getTotalTime(5)), DEBUG_INFO);
+				printDebugTimerInfo();
 			}
 			catch (...) {
 				debugMessage("Error while recording.", DEBUG_ERROR);

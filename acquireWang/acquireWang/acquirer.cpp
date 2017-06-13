@@ -42,7 +42,8 @@ void BaseAcquirer::run() {
 
 BaseFrame BaseAcquirer::dequeue() {
 	BaseFrame result;
-	queue.wait_dequeue_timed(result, TIME_WAIT_QUEUE);
+	//queue.wait_dequeue_timed(result, TIME_WAIT_QUEUE);
+	queue.try_dequeue(result);
 	if (result.isValid()) {
 		cnt++;
 		debugMessage(name + ": dequeued " + std::to_string(cnt) + " valid frames", DEBUG_HIDDEN_INFO);
@@ -111,7 +112,9 @@ void BaseAcquirer::emptyQueueGUI() {
 
 void BaseAcquirer::getAndEnqueue() {
 	try {
+		timers.start(6);
 		BaseFrame received = camera.getFrame(); // get frame from camera
+		timers.pause(6);
 		double timestamp = getClockStamp(); // get timestamp when received
 		if (received.isValid()) { // i.e. success
 			// Get frame and set timestamp

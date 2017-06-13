@@ -103,7 +103,7 @@ public:
 	void beginAcquisition() override {
 		debugMessage("Beginning acquisition PG camera", DEBUG_HIDDEN_INFO);
 		try {
-			ensureReady(false);
+			while (ensureReady(false) < 0) {};
 			if (!pCam->IsStreaming()) {
 				pCam->BeginAcquisition();
 			}

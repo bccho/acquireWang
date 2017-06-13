@@ -23,3 +23,5 @@ enum DEBUG_LEVELS {
 inline void debugMessage(const std::string message, int verbosity) {
 	if (verbosity <= MAX_VERBOSITY) std::cout << message << std::endl;
 }
+
+void printDebugTimerInfo();

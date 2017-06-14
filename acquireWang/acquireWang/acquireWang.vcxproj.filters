@@ -71,5 +71,8 @@
     <ClInclude Include="debugtimers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="openkincam.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

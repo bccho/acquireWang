@@ -35,6 +35,10 @@ private:
 	//void initDataset(std::string& dsname) {
 	//}
 
+	// Disable assignment operator and copy constructor
+	H5Out& operator=(const H5Out& other) = delete;
+	H5Out(const H5Out& other) = delete;
+
 public:
 	H5Out(std::string& _filename, std::vector<BaseAcquirer*>& _acquirers, const size_t _frameChunkSize,
 		const std::vector<std::string>& _dsnames, const std::vector<PredType>& _datatypes,

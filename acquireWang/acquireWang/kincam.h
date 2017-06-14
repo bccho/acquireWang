@@ -50,6 +50,11 @@ private:
 			throw "Kinect camera error while " + whileDoing + ": " + err.ErrorMessage();
 		}
 	}
+
+	// Disable assignment operator and copy constructor
+	KinectCamera& operator=(const KinectCamera& other) = delete;
+	KinectCamera(const KinectCamera& other) = delete;
+
 public:
 	KinectCamera() {
 		HRESULT hr;
@@ -113,9 +118,10 @@ public:
 
 			// Wait for frame
 			debugMessage("Waiting...", DEBUG_HIDDEN_INFO);
-			DWORD wait_timeout = 100; // ms (DWORD = uint32)
+			const DWORD wait_timeout = 100; // ms (DWORD = uint32)
+			const int max_tries = 10; // total 1 second
 			//while (true) {
-			for (int i = 0; i < 10; i++) {
+			for (int i = 0; i < max_tries; i++) {
 				unsigned long event_id = WaitForSingleObject(reinterpret_cast<HANDLE>(frameEvent), wait_timeout);
 				if (event_id != WAIT_TIMEOUT)
 					break;

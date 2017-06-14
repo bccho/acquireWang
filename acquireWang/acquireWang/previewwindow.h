@@ -30,6 +30,10 @@ private:
 	BaseSaver& saver; // saver
 
 	bool shouldClose; // flag to indicate if the window should close
+
+	// Disable assignment operator and copy constructor
+	PreviewWindow& operator=(const PreviewWindow& other) = delete;
+	PreviewWindow(const PreviewWindow& other) = delete;
 public:
 	PreviewWindow(int width, int height, const char* title,
 				std::vector<BaseAcquirer*>& _acquirers, BaseSaver& _saver, std::vector<format>& _formats) :

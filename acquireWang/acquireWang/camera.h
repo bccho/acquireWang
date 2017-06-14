@@ -11,6 +11,10 @@ class BaseCamera {
 protected:
 	size_t width, height, channels, bytesPerPixel;
 	double fps;
+private:
+	// Disable assignment operator and copy constructor
+	BaseCamera& operator=(const BaseCamera& other) = delete;
+	BaseCamera(const BaseCamera& other) = delete;
 public:
 	// Default constructor to give default values to members
 	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0) {}

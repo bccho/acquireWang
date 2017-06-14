@@ -75,7 +75,12 @@ private:
 			return -4; // some other error
 		}
 	}
+
+	// Disable assignment operator and copy constructor
+	PointGreyCamera& operator=(const PointGreyCamera& other) = delete;
+	PointGreyCamera(const PointGreyCamera& other) = delete;
 public:
+	// Pointer should be managed externally
 	PointGreyCamera(Spinnaker::Camera* _pCam) : pCam(_pCam) {
 		debugMessage("PG Camera constructor", DEBUG_HIDDEN_INFO);
 		channels = 1;

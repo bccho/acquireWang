@@ -27,7 +27,7 @@
 
 // Other unit files
 #include "acquirer.h"
-#include "kincam.h"
+#include "openkincam.h"
 #include "pgcam.h"
 #include "h5out.h"
 #include "previewwindow.h"
@@ -237,6 +237,11 @@ int main(int argc, char* argv[]) {
 	pg_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 
 	/* Set up cameras */
+	// Initialize Kinect system
+	libfreenect2::Freenect2 freenect2;
+	int numKinCameras = freenect2.enumerateDevices();
+	debugMessage("Connected Kinect devices: " + std::to_string(numKinCameras), DEBUG_INFO);
+
 	// Initialize Point Grey system
 	Spinnaker::SystemPtr system = Spinnaker::System::GetInstance();
 	Spinnaker::CameraList camList = system->GetCameras();
@@ -245,11 +250,18 @@ int main(int argc, char* argv[]) {
 
 	// Set up Kinect camera
 	// TODO: make a class to hold camnames, dtypes, etc.
-	cameras.push_back(new KinectCamera);
-	camnames.push_back("kinect");
-	formats.push_back(DEPTH_16BIT);
-	dtypes.push_back(KINECT_H5T);
-	dcpls.push_back(kin_dcpl);
+	std::vector<libfreenect2::Freenect2Device*> kinCameras;
+	for (int i = 0; i < numKinCameras; i++) {
+		std::string serial = freenect2.getDeviceSerialNumber(i);
+		// TODO: new pipeline too?
+		kinCameras.push_back(freenect2.openDevice(serial));
+		cameras.push_back(new KinectCamera(kinCameras[i]));
+		// Add to camnames, dtypes, etc.
+		camnames.push_back("kinect-" + serial);
+		formats.push_back(DEPTH_16BIT);
+		dtypes.push_back(KINECT_H5T);
+		dcpls.push_back(kin_dcpl);
+	}
 
 	// Set up Point Grey cameras
 	std::vector<Spinnaker::Camera*> pgCameras;

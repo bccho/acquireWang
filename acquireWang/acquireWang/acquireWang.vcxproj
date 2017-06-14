@@ -103,7 +103,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\include;..\..\..\include;C:\Program Files\Point Grey Research\Spinnaker\include;..\..\..\glfw\include;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\include;..\..\..\include;C:\Program Files\Point Grey Research\Spinnaker\include;..\..\..\glfw\include;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\inc\;C:\Program Files\OpenKinect\libfreenect2\build\install\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;WIN32;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4710; 4099; 4514; 4820; 4571; 4505; 4706</DisableSpecificWarnings>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -111,8 +111,8 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\bin;C:\Program Files\HDF_Group\HDF5\1.8.17\lib;C:\Apps\glfw-3.2.bin.WIN64\lib-vc2015;C:\Program Files\Point Grey Research\Spinnaker\lib64;C:\Program Files\Point Grey Research\Spinnaker\lib64\vs2015;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libhdf5.lib;libhdf5_cpp.lib;libhdf5_hl.lib;libhdf5_hl_cpp.lib;libhdf5_tools.lib;libszip.lib;libzlib.lib;opengl32.lib;glfw3.lib;Spinnaker_$(PlatformToolset).lib;Kinect20.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Program Files\HDF_Group\HDF5\1.8.17\bin;C:\Program Files\HDF_Group\HDF5\1.8.17\lib;C:\Apps\glfw-3.2.bin.WIN64\lib-vc2015;C:\Program Files\Point Grey Research\Spinnaker\lib64;C:\Program Files\Point Grey Research\Spinnaker\lib64\vs2015;C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\Lib\x64;C:\Program Files\OpenKinect\libfreenect2\build\lib\RelWithDebInfo;C:\Program Files\OpenKinect\libfreenect2\depends\libusb\MS64\dll;C:\Program Files\OpenKinect\libfreenect2\depends\libjpeg-turbo64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libhdf5.lib;libhdf5_cpp.lib;libhdf5_hl.lib;libhdf5_hl_cpp.lib;libhdf5_tools.lib;libszip.lib;libzlib.lib;opengl32.lib;glfw3.lib;Spinnaker_$(PlatformToolset).lib;Kinect20.lib;freenect2.lib;libusb-usbdk-1.0.lib;turbojpeg.lib;glfw3dll.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>

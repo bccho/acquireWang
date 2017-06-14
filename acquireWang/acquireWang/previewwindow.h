@@ -54,6 +54,8 @@ public:
 
 	~PreviewWindow() {
 		debugMessage("~PreviewWindow", DEBUG_HIDDEN_INFO);
+		glfwDestroyWindow(win); // exit GUI
+		glfwTerminate();
 	}
 
 	void run() {

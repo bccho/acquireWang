@@ -17,11 +17,6 @@ BaseAcquirer::BaseAcquirer(const std::string& _name, BaseCamera& _camera) :
 	if (GUI_downsample_rate < 1) GUI_downsample_rate = 1;
 }
 
-//BaseAcquirer::BaseAcquirer(const BaseAcquirer& other) :
-//		BaseAcquirer(other.name, other.camera) {
-//	debugMessage("BaseAcquirer copy constructor " + name, DEBUG_HIDDEN_INFO);
-//}
-
 // Destructor (finalize camera after passing to acquirer, but do not end acquisition)
 BaseAcquirer::~BaseAcquirer() {
 	// End thread

@@ -53,12 +53,13 @@ private:
 	// Debug
 	int cnt = 0;
 
+	// Disable assignment operator and copy constructor
+	BaseAcquirer& operator=(const BaseAcquirer& other) = delete;
+	BaseAcquirer(const BaseAcquirer& other) = delete;
+
 public:
 	// Constructor (do not initialize camera before passing to acquirer)
 	BaseAcquirer(const std::string& _name, BaseCamera& _camera);
-	// Copy constructor (shallow copy)
-	//BaseAcquirer(const BaseAcquirer& other);
-	// TODO: I should really change this (rule of 3) to make deep copy
 
 	// Destructor (do not finalize camera after passing to acquirer)
 	virtual ~BaseAcquirer();
@@ -88,8 +89,7 @@ public:
 	BaseFrame getMostRecentGUI();
 
 	/* Methods */
-	// Camera access methods (for pointer safety, we do not permit direct access to the camera;
-	// also the creator of the Acquirer should have direct access to the camera anyway)
+	// Camera access methods (for the Law of Demeter)
 	void beginAcquisition() { camera.beginAcquisition(); }
 	void endAcquisition() { camera.endAcquisition(); }
 	size_t getWidth() { return camera.getWidth(); }
@@ -114,8 +114,4 @@ public:
 	bool readyForGUI() { return (queueGUI.peek() != nullptr); }
 	// Returns true if the GUI in the main loop should stop blocking while waiting for this acquirer
 	bool shouldDraw() { return readyForGUI() || (framesReceived == framesToAcquire); }
-
-	// Assignment operator override
-	//BaseAcquirer operator=(const BaseAcquirer& other) { return BaseAcquirer(other); } // note: shallow copy!
-	// TODO: I should really change this (rule of 3)
 };

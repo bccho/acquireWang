@@ -18,16 +18,22 @@ protected:
 	const size_t numStreams; // Number of acquirers/streams
 	const size_t frameChunkSize; // Number of frames per "chunk" to write at one time
 								 // (some applications are faster when frames are written in chunks)
+	std::atomic<bool> saving; // Flag to indicate if saving should abort
+
+	// TODO: make a small class so that we have just one vector of that class?? Or is this okay...
 	std::vector< std::deque<BaseFrame> > writeBuffers; // Write buffer to pull frames off thread-safe queues
 	std::vector<size_t> framesSaved; // Numbers of frames saved for each acquirer/stream
-	std::atomic<bool> saving; // Flag to indicate if saving should abort
 	std::vector<BaseAcquirer*>& acquirers; // Acquirers for reference
 private:
 	std::thread* saveThread; // Thread for saving
 
 	// Methods for thread
-	void moveFramesToWriteBuffers(size_t acqIndex); // Returns true if successful
+	void moveFramesToWriteBuffers(size_t acqIndex);
 	void writeLoop();
+
+	// Disable assignment operator and copy constructor
+	BaseSaver& operator=(const BaseSaver& other) = delete;
+	BaseSaver(const BaseSaver& other) = delete;
 public:
 	// Filename to write to
 	const std::string filename;
@@ -57,7 +63,5 @@ public:
 
 	// Saving progress, in number of seconds' worth of frames saved
 	double getSavingProgress(size_t acqIndex) { return (double) framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
-
-	// TODO: I should really add a copy constructor and assignment operator (rule of 3)
 };
 

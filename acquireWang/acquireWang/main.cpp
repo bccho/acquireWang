@@ -256,8 +256,12 @@ int main(int argc, char* argv[]) {
 		dcpls.push_back(pg_dcpl);
 	}
 
+	// Check number of cameras
+	if (cameras.size() == 0) {
+		debugMessage("No cameras to record from!", DEBUG_ERROR);
+	}
 	/* Recording loop */
-	if (fixedlen) {
+	else if (fixedlen) {
 		timers.start(0);
 		timers.start(1);
 		record(saveTitle, recordingDuration);

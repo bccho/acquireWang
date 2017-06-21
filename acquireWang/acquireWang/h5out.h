@@ -91,6 +91,12 @@ public:
 		}
 	}
 
+	~H5Out() {
+		debugMessage("~H5Out", DEBUG_HIDDEN_INFO);
+		for (int i = 0; i < numStreams; i++) datasets[i].close();
+		file.close();
+	}
+
 	// This does not modify the contents of the write buffer
 	virtual bool writeFrames(size_t numFrames, size_t bufIndex) {
 		bool success = true;
@@ -183,9 +189,29 @@ public:
 		}
 	}
 
-	~H5Out() {
-		debugMessage("~H5Out", DEBUG_HIDDEN_INFO);
-		for (int i = 0; i < numStreams; i++) datasets[i].close();
-		file.close();
+	// Write scalar attribute to root group
+	void writeScalarAttribute(std::string name, int value) {
+		H5::Group root = file.openGroup("/");
+		int attr_data[1] = { value };
+		const H5::PredType datatype = H5::PredType::STD_I32LE;
+		H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
+		H5::Attribute attribute = root.createAttribute(name, datatype, attr_dataspace);
+		attribute.write(datatype, attr_data);
+	}
+	void writeScalarAttribute(std::string name, size_t value) {
+		H5::Group root = file.openGroup("/");
+		size_t attr_data[1] = { value };
+		const H5::PredType datatype = H5::PredType::STD_U64LE;
+		H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
+		H5::Attribute attribute = root.createAttribute(name, datatype, attr_dataspace);
+		attribute.write(datatype, attr_data);
+	}
+	void writeScalarAttribute(std::string name, double value) {
+		H5::Group root = file.openGroup("/");
+		double attr_data[1] = { value };
+		const H5::PredType datatype = H5::PredType::NATIVE_DOUBLE;
+		H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
+		H5::Attribute attribute = root.createAttribute(name, datatype, attr_dataspace);
+		attribute.write(datatype, attr_data);
 	}
 };

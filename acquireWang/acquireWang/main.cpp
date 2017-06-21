@@ -76,13 +76,15 @@ std::map<std::string, size_t> readConfig() {
 		params["_kinectYchunk"] = 53;
 		params["_pgXchunk"] = 32;
 		params["_pgYchunk"] = 32;
+		params["_compression"] = 0;
 
+		// Access parameters for efficient writing
 		params["_lz4_block_size"] = 1 << 30;
-
 		params["_mdc_nelmnts"] = 1024;
 		//params["_rdcc_nslots"] = 3209; // prime number close to 3200
 		params["_rdcc_nslots"] = 32009; // prime number close to 32000
 		params["_rdcc_nbytes"] = 50 * 1024 * 1280 * 8;
+		params["_sievebufsize"] = 8388608;
 
 		// Save
 		nlohmann::json j_map(params);
@@ -112,22 +114,6 @@ int getConsoleWidth() {
 	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
 	columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 	return columns;
-}
-
-void writeScalarAttribute(H5::Group group, std::string& name, int value) {
-	int attr_data[1] = { value };
-	const H5::PredType datatype = H5::PredType::STD_I32LE;
-	H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
-	H5::Attribute attribute = group.createAttribute(name, datatype, attr_dataspace);
-	attribute.write(datatype, attr_data);
-}
-
-void writeScalarAttribute(H5::Group group, std::string& name, double value) {
-	double attr_data[1] = { value };
-	const H5::PredType datatype = H5::PredType::NATIVE_DOUBLE;
-	H5::DataSpace attr_dataspace = H5::DataSpace(H5S_SCALAR);
-	H5::Attribute attribute = group.createAttribute(name, datatype, attr_dataspace);
-	attribute.write(datatype, attr_data);
 }
 
 // Recording session
@@ -182,6 +168,13 @@ int record(std::string& saveTitle, double duration) {
 	}
 	h5out->abortSaving();
 
+	// Write metadata
+	for (size_t i = 0; i < acquirers.size(); i++) {
+		h5out->writeScalarAttribute(acquirers[i]->getName() + "_fps", cameras[i]->getFPS());
+	}
+	h5out->writeScalarAttribute("deflate", params["_compression"]);
+
+	// Finalizez
 	delete h5out;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		delete acquirers[i];

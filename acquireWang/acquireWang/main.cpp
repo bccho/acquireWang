@@ -244,10 +244,10 @@ int main(int argc, char* argv[]) {
 	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), DEBUG_INFO);
 
 	// Set up Kinect camera
-	// TODO: make a data structure to hold camnames, dtypes, etc.
+	// TODO: make a class to hold camnames, dtypes, etc.
 	cameras.push_back(new KinectCamera);
 	camnames.push_back("kinect");
-	formats.push_back(DEPTH_16BIT); // TODO: combine formats[] and dtypes[]
+	formats.push_back(DEPTH_16BIT);
 	dtypes.push_back(KINECT_H5T);
 	dcpls.push_back(kin_dcpl);
 
@@ -256,7 +256,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < numPGcameras; i++) {
 		pgCameras.push_back(camList.GetByIndex(i).operator->());
 		cameras.push_back(new PointGreyCamera(pgCameras[i]));
-		// TODO: Add to camnames, dtypes, etc.
+		// Add to camnames, dtypes, etc.
 		camnames.push_back("pg" + std::to_string(i));
 		formats.push_back(GRAY_8BIT);
 		dtypes.push_back(POINTGREY_H5T);

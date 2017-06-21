@@ -22,6 +22,7 @@ const PredType BOOKMARK_H5T = PredType::STD_U64LE;
 class H5Out : public BaseSaver {
 private:
 	H5File file;
+	// TODO: make a small class so that we have just one vector of that class (for cleanliness)
 	std::vector<DataSet> datasets; // collection of datasets
 	std::vector<DataSet> tsdatasets; // collection of datasets for timestamps
 	const std::vector<std::string> dsnames; // collection of dataset names
@@ -29,6 +30,10 @@ private:
 
 	const int ndims = 4;
 	std::vector< std::vector<size_t> > frameDims;
+
+	// TODO: Methods to de-duplicate code
+	//void initDataset(std::string& dsname) {
+	//}
 
 public:
 	H5Out(std::string& _filename, std::vector<BaseAcquirer*>& _acquirers, const size_t _frameChunkSize,
@@ -67,7 +72,6 @@ public:
 			delete dataspace;
 		}
 		// Initialize timestamp datasets
-		// TODO: timestamps need a dcpl too! Need chunking to be an unlimited dataset
 		for (int i = 0; i < numStreams; i++) {
 			// Prepare dataspace
 			size_t* dims = new size_t[2];

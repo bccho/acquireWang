@@ -54,6 +54,8 @@ public:
 
 	~PreviewWindow() {
 		debugMessage("~PreviewWindow", DEBUG_HIDDEN_INFO);
+		glfwDestroyWindow(win); // exit GUI
+		glfwTerminate();
 	}
 
 	void run() {
@@ -111,26 +113,6 @@ public:
 							}
 						}
 					}
-
-					// Progress bars
-					//double acqProgress = 0;
-					//int cnt = 0;
-					//for (size_t i = 0; i < numBuffers; i++) {
-					//	if (acquirers[i].getFramesToAcquire() > 0) {
-					//		acqProgress += acquirers[i].getAcquisitionProgress();
-					//		cnt++;
-					//	}
-					//}
-					//acqProgress /= (double)(cnt);
-
-					//double pgProgress = 0;
-					//for (auto str : pgStreams) {
-					//	pgProgress += str->getSavingProgress();
-					//}
-					//pgProgress /= (double)(numPGcameras);
-					//GUI::progress_bar({ 30, buf_h * 2 + 10, w - 30, buf_h * 2 + 30 }, acquisitionProgress, "Acquisition progress");
-					//GUI::progress_bar({ 30, buf_h * 2 + 40, w - 30, buf_h * 2 + 60 }, kinProgress, "Kinect camera saving progress");
-					//GUI::progress_bar({ 30, buf_h * 2 + 70, w - 30, buf_h * 2 + 90 }, pgProgress, "Point Grey camera saving progress");
 
 					// Show on screen
 					glPopMatrix();

@@ -1,5 +1,6 @@
 #pragma once
 #pragma warning(push, 0)
+#include <thread>
 #include "Spinnaker.h"
 #include "SpinGenApi/SpinnakerGenApi.h"
 #pragma warning(pop)
@@ -35,49 +36,98 @@ public:
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 class PointGreyCamera : public BaseCamera {
 private:
+	Spinnaker::System* sys;
+	//Spinnaker::CameraList* camlist;
+	std::string serial;
 	Spinnaker::Camera* pCam;
+
+	void getCamFromSerial() {
+		//pCam = camlist->GetBySerial(serial);
+		try {
+			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+			debugMessage("Getting camera list...", DEBUG_INFO);
+			Spinnaker::CameraList camlist = sys->GetCameras();
+			debugMessage(std::to_string(camlist.GetSize()) + " cameras.", DEBUG_INFO);
+			debugMessage("Getting camera by serial...", DEBUG_INFO);
+			Spinnaker::Camera* newCam = camlist.GetBySerial(serial);
+			if (newCam != nullptr) {
+				if (newCam->IsValid()) {
+					debugMessage("Setting pCam...", DEBUG_INFO);
+					pCam = newCam;
+				}
+			}
+			debugMessage("Clearing camlist...", DEBUG_INFO);
+			camlist.Clear();
+		}
+		catch (...) {
+			debugMessage("Getting camera from device serial failed!", DEBUG_ERROR);
+		}
+		debugMessage("Returning from getCamFromSerial()...", DEBUG_INFO);
+	}
 
 	int ensureReady(bool ensureAcquiring) {
 		/* Returns negative values if not; returns 0 if yes */
+		int result = -1; // somehow pCam variable access fails... should never return -1
 		try {
 			// Check pointer valid
 			if (pCam == nullptr) { // invalid pointer
-				debugMessage("pCam = nullptr", DEBUG_HIDDEN_INFO);
-				return -1;
+				debugMessage("pCam == nullptr", DEBUG_ERROR);
+				result = -2; // getting camera from camlist failed
+				getCamFromSerial();
 			}
+			result = -3; // pCam pointer dereference failed
 			if (!pCam->IsValid()) { // invalid pointer
-				debugMessage("Not valid", DEBUG_HIDDEN_INFO);
-				return -1;
+				debugMessage("pCam is not valid", DEBUG_ERROR);
+				result = -2; // getting camera from camlist failed
+				getCamFromSerial();
 			}
 
+			result = -3; // pCam pointer dereference failed
 			// Check initialized and acquiring; if not, try to fix it
 			if (!pCam->IsInitialized()) {
-				debugMessage("Was not initialized", DEBUG_HIDDEN_INFO);
+				debugMessage("pCam is not initialized", DEBUG_ERROR);
+				result = -4; // initialize function call failed
 				initialize();
 			}
+			result = -3; // pCam pointer dereference failed
 			if (ensureAcquiring && !pCam->IsStreaming()) {
-				debugMessage("Was not acquiring", DEBUG_HIDDEN_INFO);
+				debugMessage("pCam is not acquiring", DEBUG_ERROR);
+				result = -5; // begin acquisition function call failed
 				pCam->BeginAcquisition();
 			}
 
 			// Check again and return
-			if (!pCam->IsInitialized()) {
-				debugMessage("Still not initialized", DEBUG_ERROR);
-				return -2; // still not initialized
+			result = -3; // pCam pointer dereference failed
+			if (pCam == nullptr) {
+				debugMessage("pCam still nullptr", DEBUG_ERROR);
+				result = -6; // still invalid pointer
 			}
-			if (ensureAcquiring && !pCam->IsStreaming()) {
+			else if (!pCam->IsValid()) {
+				debugMessage("pCam still not valid", DEBUG_ERROR);
+				result = -7; // still not valid
+			}
+			else if (!pCam->IsInitialized()) {
+				debugMessage("pCam still not initialized", DEBUG_ERROR);
+				result = -8; // still not initialized
+			}
+			else if (ensureAcquiring && !pCam->IsStreaming()) {
 				debugMessage("Still not acquiring", DEBUG_ERROR);
-				return -3; // still not streaming
+				result -9; // still not streaming
 			}
-			return 0;
+			result = 0; // all OK
 		}
 		catch (...) {
-			return -4; // some other error
+			return result;
 		}
+		return result;
 	}
 public:
-	PointGreyCamera(Spinnaker::Camera* _pCam) : pCam(_pCam) {
+	//PointGreyCamera(Spinnaker::CameraList* _camlist, std::string _serial) :
+			//camlist(_camlist), serial(_serial) {
+	PointGreyCamera(Spinnaker::System* _sys, std::string _serial) :
+			sys(_sys), serial(_serial) {
 		debugMessage("PG Camera constructor", DEBUG_HIDDEN_INFO);
+		getCamFromSerial();
 		channels = 1;
 		bytesPerPixel = sizeof(pointgrey_t);
 	}
@@ -97,6 +147,9 @@ public:
 		debugMessage("Finalizing PG camera", DEBUG_HIDDEN_INFO);
 		if (pCam->IsStreaming()) {
 			pCam->EndAcquisition();
+		}
+		if (pCam->IsInitialized()) {
+			pCam->DeInit();
 		}
 	}
 

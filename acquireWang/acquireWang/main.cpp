@@ -245,10 +245,12 @@ int main(int argc, char* argv[]) {
 	dcpls.push_back(kin_dcpl);
 
 	// Set up Point Grey cameras
-	std::vector<Spinnaker::Camera*> pgCameras;
 	for (int i = 0; i < numPGcameras; i++) {
-		pgCameras.push_back(camList.GetByIndex(i).operator->());
-		cameras.push_back(new PointGreyCamera(pgCameras[i]));
+		Spinnaker::CameraPtr pCam = camList.GetByIndex(i);
+		Spinnaker::GenApi::INodeMap& tldnmap = pCam->GetTLDeviceNodeMap();
+		Spinnaker::GenApi::CStringPtr node = tldnmap.GetNode("DeviceSerialNumber");
+		std::string serial = node->GetValue();
+		cameras.push_back(new PointGreyCamera(system.operator->(), serial));
 		// Add to camnames, dtypes, etc.
 		camnames.push_back("pg" + std::to_string(i));
 		formats.push_back(GRAY_8BIT);
@@ -314,10 +316,6 @@ int main(int argc, char* argv[]) {
 		delete ptr;
 	}
 	try {
-		for (auto ptr : pgCameras) {
-			ptr->DeInit();
-			ptr = NULL;
-		}
 		camList.Clear();
 		system->ReleaseInstance();
 	}

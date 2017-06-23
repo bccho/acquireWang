@@ -30,6 +30,7 @@ private:
 	BaseSaver& saver; // saver
 
 	bool shouldClose; // flag to indicate if the window should close
+
 public:
 	PreviewWindow(int width, int height, const char* title,
 				std::vector<BaseAcquirer*>& _acquirers, BaseSaver& _saver, std::vector<format>& _formats) :
@@ -107,10 +108,6 @@ public:
 
 							double savingProgress = saver.getSavingProgress(i) / acquirers[i]->getSecondsToAcquire();
 							GUI::progress_bar({ x1, y3, x2, y4 }, savingProgress, acquirers[i]->getName() + " saving progress");
-
-							if (acquisitionProgress < savingProgress) {
-								//debugMessage("Lol wut", DEBUG_INFO);
-							}
 						}
 					}
 

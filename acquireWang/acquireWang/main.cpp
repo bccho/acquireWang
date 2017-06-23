@@ -134,7 +134,7 @@ int record(std::string& saveTitle, double duration) {
 	// Set up file access property list
 	H5::FileAccPropList fapl;
 	fapl.setCache(65536000, params["_rdcc_nslots"], params["_rdcc_nbytes"], 0);
-	// Create saving object
+	// Create saving objects
 	H5Out* h5out = new H5Out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
 
@@ -153,7 +153,7 @@ int record(std::string& saveTitle, double duration) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();
 	}
-	//// Wait for acquirers to be ready
+	//// TODO: Wait for acquirers to be ready
 	//while (!std::all_of(acquirers.begin(), acquirers.end(), [](BaseAcquirer* acq) { return acq->ready(); })) {}
 	preview.run();
 	for (size_t i = 0; i < cameras.size(); i++) {

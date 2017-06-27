@@ -43,6 +43,8 @@ private:
 
 	WAITABLE_HANDLE frameEvent;
 
+	bool valid;
+
 	void handleHRESULT(HRESULT hr, std::string whileDoing) {
 		if (hr != S_OK) {
 			_com_error err(hr);
@@ -52,46 +54,55 @@ private:
 	}
 public:
 	KinectCamera() {
-		HRESULT hr;
-		hr = GetDefaultKinectSensor(&kinectSensor);
-		handleHRESULT(hr, "detecting Kinect");
+		valid = true;
+		try {
+			HRESULT hr;
+			hr = GetDefaultKinectSensor(&kinectSensor);
+			handleHRESULT(hr, "detecting Kinect");
 
-		// Open sensor
-		hr = kinectSensor->Open();
-		handleHRESULT(hr, "opening Kinect sensor");
+			// Open sensor
+			hr = kinectSensor->Open();
+			handleHRESULT(hr, "opening Kinect sensor");
 
-		// Subscribe to frame callback
-		hr = kinectSensor->OpenMultiSourceFrameReader(FrameSourceTypes::FrameSourceTypes_Depth, &frameReader);
-		handleHRESULT(hr, "opening Kinect source");
-		hr = frameReader->SubscribeMultiSourceFrameArrived(&frameEvent);
-		handleHRESULT(hr, "subscribing to frame event");
+			// Subscribe to frame callback
+			hr = kinectSensor->OpenMultiSourceFrameReader(FrameSourceTypes::FrameSourceTypes_Depth, &frameReader);
+			handleHRESULT(hr, "opening Kinect source");
+			hr = frameReader->SubscribeMultiSourceFrameArrived(&frameEvent);
+			handleHRESULT(hr, "subscribing to frame event");
 
-		// Get frame size
-		IDepthFrameSource* depthFrameSource;
-		hr = kinectSensor->get_DepthFrameSource(&depthFrameSource);
-		handleHRESULT(hr, "getting depth frame source");
-		IFrameDescription* frameDescription;
-		hr = depthFrameSource->get_FrameDescription(&frameDescription);
-		handleHRESULT(hr, "getting depth frame descriptor");
-		int _height, _width;
-		hr = frameDescription->get_Height(&_height);
-		handleHRESULT(hr, "getting depth frame height");
-		hr = frameDescription->get_Width(&_width);
-		handleHRESULT(hr, "getting depth frame width");
-		height = (size_t)_height;
-		width = (size_t)_width;
+			// Get frame size
+			IDepthFrameSource* depthFrameSource;
+			hr = kinectSensor->get_DepthFrameSource(&depthFrameSource);
+			handleHRESULT(hr, "getting depth frame source");
+			IFrameDescription* frameDescription;
+			hr = depthFrameSource->get_FrameDescription(&frameDescription);
+			handleHRESULT(hr, "getting depth frame descriptor");
+			int _height, _width;
+			hr = frameDescription->get_Height(&_height);
+			handleHRESULT(hr, "getting depth frame height");
+			hr = frameDescription->get_Width(&_width);
+			handleHRESULT(hr, "getting depth frame width");
+			height = (size_t)_height;
+			width = (size_t)_width;
 
-		frameDescription->Release();
-		hr = kinectSensor->Close();
-		handleHRESULT(hr, "closing Kinect sensor");
+			frameDescription->Release();
+			hr = kinectSensor->Close();
+			handleHRESULT(hr, "closing Kinect sensor");
 
-		bytesPerPixel = sizeof(kinect_t);
-		channels = 1;
-		fps = 30;
+			bytesPerPixel = sizeof(kinect_t);
+			channels = 1;
+			fps = 30;
+			camType = CAMERA_KINECT;
+		}
+		catch (...) {
+			valid = false;
+		}
 	}
 	~KinectCamera() override {
 		debugMessage("~KinectCamera", DEBUG_HIDDEN_INFO);
 	}
+
+	bool isValid() { return valid; }
 
 	void initialize() override {
 		debugMessage("kinect initialize()", DEBUG_HIDDEN_INFO);

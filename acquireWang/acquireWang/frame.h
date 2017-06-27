@@ -66,14 +66,24 @@ public:
 	// Buffer access methods (protect data from abuse)
 	// Derived classes should override these for type safety
 	void copyDataFromBuffer(void* buffer) {
-		timers.start(5);
-		std::memcpy(data, buffer, getBytes());
-		timers.pause(5);
+		try {
+			timers.start(5);
+			std::memcpy(data, buffer, getBytes());
+			timers.pause(5);
+		}
+		catch (...) {
+			valid = false;
+		}
 	}
 	void copyDataToBuffer(void* buffer) {
-		timers.start(5);
-		std::memcpy(buffer, data, getBytes());
-		timers.pause(5);
+		try {
+			timers.start(5);
+			std::memcpy(buffer, data, getBytes());
+			timers.pause(5);
+		}
+		catch (...) {
+			valid = false;
+		}
 	}
 
 	// Assignment operator override

@@ -23,22 +23,29 @@ BaseSaver::~BaseSaver() {
  * PRIVATE METHODS *
  * * * * * * * * * */
 
-void BaseSaver::moveFramesToWriteBuffers(size_t acqIndex) {
-	for (size_t i = 0; i < frameChunkSize; i++) {
-		timers.start(8);
-		BaseFrame dequeued = acquirers[acqIndex]->dequeue();
-		timers.pause(8);
-		if (dequeued.isValid()) { writeBuffers[acqIndex].push_back(dequeued); }
-		else break;
-	}
+bool BaseSaver::moveFrameToWriteBuffer(size_t acqIndex) {
+	timers.start(8);
+	BaseFrame dequeued = acquirers[acqIndex]->dequeue();
+	timers.pause(8);
+	bool result = dequeued.isValid();
+	if (result) { writeBuffers[acqIndex].push_back(dequeued); }
+	return result;
 }
 
 void BaseSaver::writeLoop() {
 	while (saving) {
-		// Move one waiting frame to write buffers for each stream
+		// Move waiting frames to write buffers for each stream
 		timers.start(7);
-		for (size_t i = 0; i < numStreams; i++) {
-			moveFramesToWriteBuffers(i);
+		//for (size_t i = 0; i < frameChunkSize * 2; i++) {
+		for (size_t i = 0; i < frameChunkSize; i++) {
+			bool allDone = true; // break if all cameras have no frames to dequeue
+			for (size_t j = 0; j < numStreams; j++) {
+				allDone = allDone && !moveFrameToWriteBuffer(j);
+			}
+			if (allDone) {
+				//debugMessage("Break after " + std::to_string(i) + " frames", DEBUG_INFO);
+				break;
+			}
 		}
 		timers.pause(7);
 		

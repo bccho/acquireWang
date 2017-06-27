@@ -37,32 +37,31 @@ public:
 class PointGreyCamera : public BaseCamera {
 private:
 	Spinnaker::System* sys;
-	//Spinnaker::CameraList* camlist;
 	std::string serial;
 	Spinnaker::Camera* pCam;
+	bool triggeredAcquisition;
 
 	void getCamFromSerial() {
-		//pCam = camlist->GetBySerial(serial);
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		//debugMessage("Getting camera list...", DEBUG_INFO);
+		Spinnaker::CameraList camlist = sys->GetCameras();
 		try {
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));
-			debugMessage("Getting camera list...", DEBUG_INFO);
-			Spinnaker::CameraList camlist = sys->GetCameras();
-			debugMessage(std::to_string(camlist.GetSize()) + " cameras.", DEBUG_INFO);
-			debugMessage("Getting camera by serial...", DEBUG_INFO);
+			debugMessage("Getting PG camera by serial " + serial, DEBUG_INFO);
+			debugMessage("  " + std::to_string(camlist.GetSize()) + " PG cameras detected", DEBUG_INFO);
 			Spinnaker::Camera* newCam = camlist.GetBySerial(serial);
 			if (newCam != nullptr) {
 				if (newCam->IsValid()) {
-					debugMessage("Setting pCam...", DEBUG_INFO);
+					debugMessage("  Found. Setting pCam...", DEBUG_INFO);
 					pCam = newCam;
 				}
 			}
-			debugMessage("Clearing camlist...", DEBUG_INFO);
-			camlist.Clear();
 		}
 		catch (...) {
-			debugMessage("Getting camera from device serial failed!", DEBUG_ERROR);
+			debugMessage("  Error while getting PG camera from device serial!", DEBUG_ERROR);
 		}
-		debugMessage("Returning from getCamFromSerial()...", DEBUG_INFO);
+		camlist.Clear();
+		//debugMessage("Clearing camlist...", DEBUG_INFO);
+		debugMessage("  Done.", DEBUG_INFO);
 	}
 
 	int ensureReady(bool ensureAcquiring) {
@@ -70,13 +69,13 @@ private:
 		int result = -1; // somehow pCam variable access fails... should never return -1
 		try {
 			// Check pointer valid
-			if (pCam == nullptr) { // invalid pointer
+			while (pCam == nullptr) { // invalid pointer
 				debugMessage("pCam == nullptr", DEBUG_ERROR);
 				result = -2; // getting camera from camlist failed
 				getCamFromSerial();
 			}
 			result = -3; // pCam pointer dereference failed
-			if (!pCam->IsValid()) { // invalid pointer
+			while (!pCam->IsValid()) { // invalid pointer
 				debugMessage("pCam is not valid", DEBUG_ERROR);
 				result = -2; // getting camera from camlist failed
 				getCamFromSerial();
@@ -124,11 +123,12 @@ private:
 public:
 	//PointGreyCamera(Spinnaker::CameraList* _camlist, std::string _serial) :
 			//camlist(_camlist), serial(_serial) {
-	PointGreyCamera(Spinnaker::System* _sys, std::string _serial) :
-			sys(_sys), serial(_serial) {
+	PointGreyCamera(Spinnaker::System* _sys, std::string _serial, bool _triggeredAcquisition) :
+			sys(_sys), serial(_serial), triggeredAcquisition(_triggeredAcquisition) {
 		debugMessage("PG Camera constructor", DEBUG_HIDDEN_INFO);
 		getCamFromSerial();
 		channels = 1;
+		camType = CAMERA_PG;
 		bytesPerPixel = sizeof(pointgrey_t);
 	}
 	~PointGreyCamera() override {
@@ -137,26 +137,41 @@ public:
 
 	void initialize() override {
 		debugMessage("Initializing PG camera", DEBUG_HIDDEN_INFO);
-		pCam->Init();
-		width = pCam->Width.GetValue();
-		height = pCam->Height.GetValue();
-		fps = pCam->AcquisitionFrameRate.GetValue();
+		try {
+			pCam->Init();
+			width = pCam->Width.GetValue();
+			height = pCam->Height.GetValue();
+			fps = pCam->AcquisitionFrameRate.GetValue();
+		}
+		catch (...) {
+			debugMessage("Error while initializing PG. Trying again...", DEBUG_ERROR);
+			initialize();
+		}
 	}
 
 	void finalize() override {
 		debugMessage("Finalizing PG camera", DEBUG_HIDDEN_INFO);
-		if (pCam->IsStreaming()) {
-			pCam->EndAcquisition();
+		try {
+			while (ensureReady(false) < 0) {}
+			if (pCam->IsStreaming()) {
+				pCam->EndAcquisition();
+			}
+			if (pCam->IsInitialized()) {
+				pCam->DeInit();
+			}
 		}
-		if (pCam->IsInitialized()) {
-			pCam->DeInit();
+		catch (...) {
+			debugMessage("Error while finalizing PG. Trying again...", DEBUG_ERROR);
+			finalize();
 		}
 	}
 
 	void beginAcquisition() override {
+		if (triggeredAcquisition) { return; } // Ignore if triggered acquisition
+
 		debugMessage("Beginning acquisition PG camera", DEBUG_HIDDEN_INFO);
 		try {
-			while (ensureReady(false) < 0) {};
+			while (ensureReady(false) < 0) {}
 			if (!pCam->IsStreaming()) {
 				pCam->BeginAcquisition();
 			}
@@ -169,8 +184,15 @@ public:
 
 	void endAcquisition() override {
 		debugMessage("Ending acquisition PG camera", DEBUG_HIDDEN_INFO);
-		if (pCam->IsStreaming()) {
-			pCam->EndAcquisition();
+		try {
+			while (ensureReady(false) < 0) {}
+			if (pCam->IsStreaming()) {
+				pCam->EndAcquisition();
+			}
+		}
+		catch (...) {
+			debugMessage("Error while ending PG acquisition. Trying again...", DEBUG_ERROR);
+			endAcquisition();
 		}
 	}
 
@@ -185,8 +207,12 @@ public:
 
 			// Pull frame
 			Spinnaker::ImagePtr pNewFrame = pCam->GetNextImage();
+			if (pNewFrame == nullptr) {
+				return BaseFrame();
+			}
 			if (pNewFrame->IsIncomplete()) {
 				debugMessage("PG image incomplete with image status " + std::to_string(pNewFrame->GetImageStatus()), DEBUG_ERROR);
+				return BaseFrame();
 			}
 			// Perform a deep copy and ensure each pixel is 1 byte
 			Spinnaker::ImagePtr pgBuffer = pNewFrame->Convert(Spinnaker::PixelFormat_Mono8, Spinnaker::HQ_LINEAR);
@@ -194,6 +220,9 @@ public:
 			// Copy again in case pgBuffer deletes data when it goes out of scope
 			PointGreyFrame frame(getWidth(), getHeight());
 			frame.copyDataFromBuffer((pointgrey_t*) pgBuffer->GetData());
+
+			// TODO: Write timestamp
+			//frame.setTimestamp(pNewFrame->GetTimeStamp());
 
 			// Release image
 			pNewFrame->Release();
@@ -205,8 +234,19 @@ public:
 		}
 	}
 
+	std::string getSerial() {
+		return serial;
+	}
+
 	double getExposure() {
 		ensureReady(false);
 		return pCam->ExposureTime.GetValue();
+	}
+
+	double getTemperature() {
+		ensureReady(false);
+		Spinnaker::GenApi::INodeMap& nmap = pCam->GetNodeMap();
+		Spinnaker::GenApi::CFloatPtr tempNode = nmap.GetNode("DeviceTemperature");
+		return tempNode->GetValue();
 	}
 };

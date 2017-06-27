@@ -28,7 +28,7 @@ private:
 	std::thread* saveThread; // Thread for saving
 
 	// Methods for thread
-	void moveFramesToWriteBuffers(size_t acqIndex);
+	bool moveFrameToWriteBuffer(size_t acqIndex);
 	void writeLoop();
 
 	// Disable assignment operator and copy constructor
@@ -63,5 +63,7 @@ public:
 
 	// Saving progress, in number of seconds' worth of frames saved
 	double getSavingProgress(size_t acqIndex) { return (double) framesSaved[acqIndex] / acquirers[acqIndex]->getFPS(); }
+	// Saving progress, in frames
+	size_t getFramesSaved(size_t acqIndex) { return framesSaved[acqIndex]; }
 };
 

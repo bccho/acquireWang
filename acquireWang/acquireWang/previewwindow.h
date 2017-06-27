@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "acquirer.h"
 #include "saver.h"
+#include "pgcam.h"
 
 enum format { DEPTH_16BIT, GRAY_8BIT, GRAY_16BIT };
 const int PROGRESSBAR_HEIGHT = 20;
@@ -27,15 +28,17 @@ private:
 	std::vector<stream_format> formats; // array of stream formats for displaying frames
 	std::vector<texture_buffer> buffers; // array of buffers to draw items
 	std::vector<BaseAcquirer*>& acquirers; // array of acquirers so that frames can be pulled from the GUI queue
+	std::vector<BaseCamera*>& cameras; // array of cameras for diagnostic information
 	BaseSaver& saver; // saver
 
 	bool shouldClose; // flag to indicate if the window should close
 
 public:
 	PreviewWindow(int width, int height, const char* title,
-				std::vector<BaseAcquirer*>& _acquirers, BaseSaver& _saver, std::vector<format>& _formats) :
-			numBuffers(_acquirers.size()), acquirers(_acquirers), saver(_saver), shouldClose(false),
-			buffers(numBuffers) {
+				std::vector<BaseAcquirer*>& _acquirers, BaseSaver& _saver, std::vector<BaseCamera*>& _cameras,
+				std::vector<format>& _formats) :
+			numBuffers(_acquirers.size()), acquirers(_acquirers), saver(_saver), cameras(_cameras),
+			shouldClose(false), buffers(numBuffers) {
 		// Populate formats[] using enum values provided
 		for (size_t i = 0; i < _formats.size(); i++) {
 			switch (_formats[i]) {
@@ -99,15 +102,37 @@ public:
 						// Get frame and show
 						BaseFrame frame = acquirers[i]->getMostRecentGUI();
 						if (frame.isValid()) {
-							showFrame(i, frame, rx, ry, buf_w, y0 - ry, acquirers[i]->getName());
+							std::string frameTitle = acquirers[i]->getName();
+							if (acquirers[i]->getCamType() == CAMERA_PG) {
+								PointGreyCamera* pCam = dynamic_cast<PointGreyCamera*>(cameras[i]);
+								if (pCam != nullptr) {
+									frameTitle += " (SN " + pCam->getSerial() + ": temperature " +
+										std::to_string(pCam->getTemperature()) + " C)";
+								}
+							}
+							showFrame(i, frame, rx, ry, buf_w, y0 - ry, frameTitle);
 						}
 						// Progress bars
 						if (acquirers[i]->getFramesToAcquire() > 0) {
 							double acquisitionProgress = acquirers[i]->getAcquisitionProgress() / acquirers[i]->getSecondsToAcquire();
-							GUI::progress_bar({ x1, y1, x2, y2 }, acquisitionProgress, acquirers[i]->getName() + " acquisition progress");
+							std::string label_acq = acquirers[i]->getName() + " acquisition progress";
+							if (acquirers[i]->getFramesToAcquire() == 0) { // if indefinite acquisition
+								label_acq += " (" + std::to_string(acquirers[i]->getFramesReceived()) + " frames)";
+							} else {
+								label_acq += " (" + std::to_string(acquirers[i]->getFramesReceived()) + " / "
+									+ std::to_string(acquirers[i]->getFramesToAcquire()) + " frames)";
+							}
+							GUI::progress_bar({ x1, y1, x2, y2 }, acquisitionProgress, label_acq);
 
 							double savingProgress = saver.getSavingProgress(i) / acquirers[i]->getSecondsToAcquire();
-							GUI::progress_bar({ x1, y3, x2, y4 }, savingProgress, acquirers[i]->getName() + " saving progress");
+							std::string label_sav = acquirers[i]->getName() + " saving progress";
+							if (acquirers[i]->getFramesToAcquire() == 0) { // if indefinite acquisition
+								label_sav += " (" + std::to_string(saver.getFramesSaved(i)) + " frames)";
+							} else {
+								label_sav += " (" + std::to_string(saver.getFramesSaved(i)) + " / "
+									+ std::to_string(acquirers[i]->getFramesToAcquire()) + " frames)";
+							}
+							GUI::progress_bar({ x1, y3, x2, y4 }, savingProgress, label_sav);
 						}
 					}
 

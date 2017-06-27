@@ -6,14 +6,16 @@
 
 // Constants
 const bool DEBUGGING = false;
+enum cameraType { CAMERA_UNKNOWN, CAMERA_PG, CAMERA_KINECT };
 
 class BaseCamera {
 protected:
 	size_t width, height, channels, bytesPerPixel;
 	double fps;
+	cameraType camType;
 public:
 	// Default constructor to give default values to members
-	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0) {}
+	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0), camType(CAMERA_UNKNOWN) {}
 	virtual ~BaseCamera() {
 		endAcquisition();
 		finalize();
@@ -26,6 +28,7 @@ public:
 	virtual void finalize() {};
 	virtual void beginAcquisition() {};
 	virtual void endAcquisition() {};
+	virtual bool isReady() { return true; };
 
 	// [frame] should already have the right dimensions, etc.
 	// (getFrame only fills the data buffer of the frame)
@@ -38,4 +41,5 @@ public:
 	size_t getFrameSize() { return width * height * channels; }
 	size_t getBytes() { return width * height * channels * bytesPerPixel; }
 	double getFPS() { return fps; }
+	cameraType getCamType() { return camType; }
 };

@@ -99,6 +99,7 @@ public:
 	size_t getBytesPerPixel() { return camera.getBytesPerPixel(); }
 	size_t getFrameBytes() { return camera.getBytes(); }
 	double getFPS() { return camera.getFPS(); }
+	double getCamType() { return camera.getCamType(); }
 	std::vector<size_t> getDims() {
 		std::vector<size_t> res = { camera.getChannels(), camera.getHeight(), camera.getWidth() };
 		return res;

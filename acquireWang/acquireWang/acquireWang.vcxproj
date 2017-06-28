@@ -126,9 +126,11 @@
     <ClCompile Include="previewwindow.cpp" />
     <ClCompile Include="saver.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="serial.cpp" />
     <ClCompile Include="timer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="serial.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="previewwindow.h" />

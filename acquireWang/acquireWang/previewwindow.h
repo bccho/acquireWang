@@ -63,8 +63,8 @@ public:
 	}
 
 	void run() {
-		try {
-			while (true) {
+		while (true) {
+			try {
 				// GUI events
 				glfwPollEvents();
 				int state = glfwGetKey(win, GLFW_KEY_Q); // when you press Q or click the exit button, stop acquisition
@@ -144,8 +144,9 @@ public:
 					if (!saver.isSaving()) break;
 				}
 			}
-		} catch (...) {
-			debugMessage("Error in GUI update loop", DEBUG_ERROR);
+			catch (...) {
+				debugMessage("Error in GUI update loop", DEBUG_ERROR);
+			}
 		}
 	}
 

@@ -13,9 +13,12 @@ protected:
 	size_t width, height, channels, bytesPerPixel;
 	double fps;
 	cameraType camType;
+
+	size_t totalFrames;
 public:
 	// Default constructor to give default values to members
-	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0), camType(CAMERA_UNKNOWN) {}
+	BaseCamera() : width(0), height(0), channels(0), bytesPerPixel(0), fps(0),
+			camType(CAMERA_UNKNOWN), totalFrames(0) {}
 	virtual ~BaseCamera() {
 		endAcquisition();
 		finalize();

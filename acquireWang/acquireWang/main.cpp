@@ -21,6 +21,7 @@
 
 // Externals
 #include "H5Cpp.h" // HDF5
+#include "serial.h"
 #pragma warning(pop)
 
 // Other unit files
@@ -37,8 +38,7 @@ size_t frameChunkSize;
 std::map<std::string, size_t> params;
 
 // For threads
-std::atomic<bool> acquiring;
-std::atomic<bool> saving;
+std::atomic<bool> stopSerialLoop;
 
 // Cameras
 std::vector<BaseCamera*> cameras;
@@ -48,8 +48,38 @@ std::vector<PredType> dtypes;
 std::vector<DSetCreatPropList> dcpls;
 
 /* Methods */
+// Serial thread loop
+void serialLoop(Serial* serial, std::string filename) {
+	// Preallocate memory
+	char incomingData[1 << 10] = "";
+	int dataLength = 1 << 10 - 1;
+	int readResult = 0;
+
+	// Open CSV file
+	std::ofstream csvFile;
+	csvFile.open(filename);
+
+	// Serial read loop
+	while (serial->IsConnected()) {
+		// Break if needed
+		if (stopSerialLoop.load()) break;
+
+		readResult = serial->ReadData(incomingData, dataLength);
+		// printf("Bytes read: (0 means no data available) %i\n",readResult);
+		incomingData[readResult] = 0;
+
+		//printf("%s", incomingData);
+		//csvFile << incomingData;
+		csvFile.write(incomingData, readResult);
+	}
+	csvFile.close();
+}
+
 // Recording session
 int record(std::string& saveTitle, double duration) {
+	/* Start serial */
+	Serial* serial = new Serial("COM4", CBR_256000);
+
 	/* Prepare acquirers */
 	debugMessage(std::to_string(cameras.size()) + " cameras", DEBUG_HIDDEN_INFO);
 	std::vector<BaseAcquirer*> acquirers;
@@ -70,16 +100,29 @@ int record(std::string& saveTitle, double duration) {
 	H5Out* h5out = new H5Out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
 
-	/* Set up frame counts */
+	/* Print camera parameters */
 	debugMessage("Camera parameters:", DEBUG_INFO);
 	for (size_t i = 0; i < cameras.size(); i++) {
 		debugMessage("  " + camnames[i] + ":", DEBUG_INFO);
-		debugMessage("    fps = " + std::to_string(cameras[i]->getFPS()), DEBUG_INFO);
+		debugMessage("    Frame rate (fps) = " + std::to_string(cameras[i]->getFPS()), DEBUG_INFO);
+		if (cameras[i]->getCamType() == CAMERA_PG) {
+			PointGreyCamera* pCam = dynamic_cast<PointGreyCamera*>(cameras[i]);
+			if (pCam != nullptr) {
+				debugMessage("    Exposure (us) = " + std::to_string(pCam->getExposure()), DEBUG_INFO);
+				debugMessage("    Gain (dB) = " + std::to_string(pCam->getGain()), DEBUG_INFO);
+				debugMessage("    Temperature (C) = " + std::to_string(pCam->getTemperature()), DEBUG_INFO);
+				debugMessage("    Serial = " + pCam->getSerial(), DEBUG_INFO);
+			}
+		}
+	}
+	/* Set up frame counts */
+	for (size_t i = 0; i < cameras.size(); i++) {
 		size_t totalFrames = round(duration * 60.0 * cameras[i]->getFPS());
 		acquirers[i]->setFramesToAcquire(totalFrames);
 	}
 
-	/* Start GUI */
+	/* Start */
+	// Prepare GUI
 	PreviewWindow preview(960, 720, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
 		acquirers, *h5out, cameras, formats);
 	// Start acquisition
@@ -89,16 +132,24 @@ int record(std::string& saveTitle, double duration) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();
 	}
+	// Start serial thread
+	stopSerialLoop = false;
+	std::thread* serialThread = nullptr;
+	if (serial->IsConnected()) {
+		serialThread = new std::thread(serialLoop, serial, saveTitle + "_daq.csv");
+	}
 	// Wait for cameras to be ready
 	for (size_t i = 0; i < cameras.size(); i++) {
 		while (!cameras[i]->isReady()) {}
 	}
 	// Start GUI
 	preview.run();
+	/* Stop */
 	// End acquisition
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->endAcquisition();
 	}
+	stopSerialLoop = true;
 	timers.pause(3);
 	timers.start(2);
 
@@ -108,14 +159,27 @@ int record(std::string& saveTitle, double duration) {
 		acquirers[i]->abortAcquisition();
 	}
 	h5out->abortSaving();
+	// Stop serial
+	if (serialThread != nullptr) {
+		serialThread->join();
+		delete serialThread;
+	}
 
 	// Write metadata
 	for (size_t i = 0; i < acquirers.size(); i++) {
 		h5out->writeScalarAttribute(acquirers[i]->getName() + "_fps", cameras[i]->getFPS());
+		if (acquirers[i]->getCamType() == CAMERA_PG) { // Point-Grey specific metadata
+			PointGreyCamera* pCam = dynamic_cast<PointGreyCamera*>(cameras[i]);
+			if (pCam != nullptr) {
+				h5out->writeScalarAttribute(acquirers[i]->getName() + "_serial", pCam->getSerial());
+				h5out->writeScalarAttribute(acquirers[i]->getName() + "_exposure", pCam->getExposure());
+				h5out->writeScalarAttribute(acquirers[i]->getName() + "_gain", pCam->getGain());
+			}
+		}
 	}
 	h5out->writeScalarAttribute("deflate", params["_compression"]);
 
-	// Finalizez
+	// Finalize
 	delete h5out;
 	for (size_t i = 0; i < cameras.size(); i++) {
 		delete acquirers[i];
@@ -192,10 +256,87 @@ int main(int argc, char* argv[]) {
 	// Set up Point Grey cameras
 	for (int i = 0; i < numPGcameras; i++) {
 		Spinnaker::CameraPtr pCam = camList.GetByIndex(i);
+		pCam->Init();
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		// Get serial number
 		Spinnaker::GenApi::INodeMap& tldnmap = pCam->GetTLDeviceNodeMap();
 		Spinnaker::GenApi::CStringPtr node = tldnmap.GetNode("DeviceSerialNumber");
 		std::string serial = node->GetValue();
-		cameras.push_back(new PointGreyCamera(system.operator->(), serial, false));
+		// If config file with this serial number exists, apply settings
+		std::string pg_config_filename = "pg" + serial + ".json";
+		bool triggeredAcquisition = false;
+		if (fileExists(pg_config_filename)) {
+			debugMessage("Point Grey configuration file found: " + pg_config_filename, DEBUG_INFO);
+			json pg_config = readJSON(pg_config_filename);
+			// Exposure
+			json::iterator item = pg_config.find("exposure");
+			if (item != pg_config.end()) {
+				double val = item.value().get<double>();
+				pCam->ExposureAuto.SetValue(Spinnaker::ExposureAuto_Off); // turn off auto-exposure
+				pCam->ExposureTime.SetValue(val);
+				debugMessage("    Set exposure = " + std::to_string(val), DEBUG_INFO);
+			}
+			// Gain
+			item = pg_config.find("gain");
+			if (item != pg_config.end()) {
+				double val = item.value().get<double>();
+				pCam->GainAuto.SetValue(Spinnaker::GainAuto_Off); // turn off auto-gain
+				pCam->Gain.SetValue(val);
+				debugMessage("    Set gain = " + std::to_string(val), DEBUG_INFO);
+			}
+			// Frame rate
+			item = pg_config.find("fps");
+			if (item != pg_config.end()) {
+				double val = item.value().get<double>();
+				pCam->AcquisitionFrameRate.SetValue(val);
+				debugMessage("    Set frame rate = " + std::to_string(val), DEBUG_INFO);
+			}
+			// Triggered acquisition?
+			item = pg_config.find("trigger_acquisition");
+			if (item != pg_config.end()) {
+				std::string val = item.value().get<std::string>();
+				std::transform(val.begin(), val.end(), val.begin(), ::toupper);
+				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
+					// Configure line 2
+					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line2);
+					pCam->LineMode.SetValue(Spinnaker::LineMode_Input); // set line 2 to input
+					pCam->LineSource.SetValue(Spinnaker::LineSource_Off); // turn off line source for line 2
+					// Configure trigger
+					pCam->TriggerSelector.SetValue(Spinnaker::TriggerSelector_AcquisitionStart); // set trigger to begin acquisition
+					pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_On); // turn on trigger mode
+					pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line2); // set line 2 as trigger source
+					pCam->TriggerActivation.SetValue(Spinnaker::TriggerActivation_RisingEdge); // trigger on rising edge
+					pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
+					triggeredAcquisition = true;
+					debugMessage("    Trigger for acquisition start turned ON", DEBUG_INFO);
+					debugMessage("      Trigger delay is " + std::to_string(pCam->TriggerDelay.GetValue()) + " us", DEBUG_INFO);
+				}
+				else {
+					pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_Off); // turn off trigger mode
+					debugMessage("    Trigger for acquisition start turned OFF", DEBUG_INFO);
+				}
+			}
+			// Output exposure signal?
+			item = pg_config.find("output_exposure");
+			if (item != pg_config.end()) {
+				std::string val = item.value().get<std::string>();
+				std::transform(val.begin(), val.end(), val.begin(), ::toupper);
+				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
+					if (triggeredAcquisition) {
+						// TODO: make these not mutually exclusive! I.e. figure out pull-ups etc. on line 1
+						debugMessage("Warning: Line 2 will be reconfigured for output exposure signal.", DEBUG_INFO);
+					}
+					// Configure line 2
+					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line2);
+					pCam->LineMode.SetValue(Spinnaker::LineMode_Output); // set line 2 to output
+					pCam->LineSource.SetValue(Spinnaker::LineSource_ExposureActive); // set line 2 source as exposure window
+					debugMessage("    Output of exposure signal activated", DEBUG_INFO);
+				}
+			}
+		}
+		pCam->DeInit();
+		// Add camera along with serial number
+		cameras.push_back(new PointGreyCamera(system.operator->(), pCam, triggeredAcquisition));
 		// Add to camnames, dtypes, etc.
 		camnames.push_back("pg" + std::to_string(i));
 		formats.push_back(GRAY_8BIT);

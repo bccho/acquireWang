@@ -3,6 +3,7 @@
   previewwindow.cpp
   saver.cpp
   main.cpp
+  serial.cpp
   timer.cpp
   Generating code
   Finished generating code

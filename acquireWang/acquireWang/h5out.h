@@ -214,4 +214,11 @@ public:
 		H5::Attribute attribute = root.createAttribute(name, datatype, attr_dataspace);
 		attribute.write(datatype, attr_data);
 	}
+	void writeScalarAttribute(std::string name, std::string value) {
+		H5::Group root = file.openGroup("/");
+		H5::StrType datatype(0, H5T_VARIABLE); // variable length string
+		H5::DataSpace attr_dataspace(H5S_SCALAR);
+		H5::Attribute attribute = root.createAttribute(name, datatype, attr_dataspace);
+		attribute.write(datatype, value);
+	}
 };

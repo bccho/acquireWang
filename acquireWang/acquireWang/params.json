@@ -1,4 +1,5 @@
 {
+    "_compression": 0,
     "_frameChunkSize": 50,
     "_kinectXchunk": 32,
     "_kinectYchunk": 53,
@@ -7,5 +8,6 @@
     "_pgXchunk": 32,
     "_pgYchunk": 32,
     "_rdcc_nbytes": 524288000,
-    "_rdcc_nslots": 32009
+    "_rdcc_nslots": 32009,
+    "_sievebufsize": 8388608
 }

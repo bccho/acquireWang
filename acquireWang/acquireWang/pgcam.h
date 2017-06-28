@@ -123,13 +123,16 @@ private:
 public:
 	//PointGreyCamera(Spinnaker::CameraList* _camlist, std::string _serial) :
 			//camlist(_camlist), serial(_serial) {
-	PointGreyCamera(Spinnaker::System* _sys, std::string _serial, bool _triggeredAcquisition) :
-			sys(_sys), serial(_serial), triggeredAcquisition(_triggeredAcquisition) {
+	PointGreyCamera(Spinnaker::System* _sys, Spinnaker::Camera* _pCam, bool _triggeredAcquisition) :
+			sys(_sys), pCam(_pCam), triggeredAcquisition(_triggeredAcquisition) {
 		debugMessage("PG Camera constructor", DEBUG_HIDDEN_INFO);
-		getCamFromSerial();
 		channels = 1;
 		camType = CAMERA_PG;
 		bytesPerPixel = sizeof(pointgrey_t);
+		// Get serial number
+		Spinnaker::GenApi::INodeMap& tldnmap = pCam->GetTLDeviceNodeMap();
+		Spinnaker::GenApi::CStringPtr node = tldnmap.GetNode("DeviceSerialNumber");
+		serial = node->GetValue();
 	}
 	~PointGreyCamera() override {
 		debugMessage("~PointGreyCamera", DEBUG_HIDDEN_INFO);
@@ -227,11 +230,21 @@ public:
 			// Release image
 			pNewFrame->Release();
 
+			totalFrames++;
 			return frame;
 		}
 		catch (...) {
 			return BaseFrame();
 		}
+	}
+
+	// TODO: don't let acquisition start until all cameras ready
+	bool isReady() override {
+		if (pCam == nullptr) return false;
+		if (!pCam->IsValid()) return false;
+		if (!pCam->IsInitialized()) return false;
+		if (!pCam->IsStreaming()) return false;
+		return totalFrames > 0;
 	}
 
 	std::string getSerial() {
@@ -241,6 +254,11 @@ public:
 	double getExposure() {
 		ensureReady(false);
 		return pCam->ExposureTime.GetValue();
+	}
+
+	double getGain() {
+		ensureReady(false);
+		return pCam->Gain.GetValue();
 	}
 
 	double getTemperature() {

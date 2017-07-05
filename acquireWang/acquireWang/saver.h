@@ -53,11 +53,12 @@ public:
 		}
 		return saving && result;
 	}
-	void abortSaving() {
-		saving = false;
+	void abortSaving(bool stopSaving) {
+		if (stopSaving) saving = false;
 		if (saveThread != nullptr) {
 			saveThread->join();
 			delete saveThread;
+			saveThread = nullptr;
 		}
 	}
 

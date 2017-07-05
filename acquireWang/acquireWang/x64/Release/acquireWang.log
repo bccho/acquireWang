@@ -1,4 +1,6 @@
 ﻿  acquirer.cpp
+acquirer.cpp(111): warning C4239: nonstandard extension used: 'initializing': conversion from 'BaseFrame' to 'BaseFrame &'
+  acquirer.cpp(111): note: A non-const reference may only be bound to an lvalue
   debug.cpp
   previewwindow.cpp
   saver.cpp

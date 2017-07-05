@@ -47,8 +47,10 @@ public:
 	// Copy constructor (deep copy; calls assignment operator overload)
 	BaseFrame(const BaseFrame& other) : width(other.width), height(other.height), channels(other.channels),
 			bytesPerPixel(other.bytesPerPixel), timestamp(other.timestamp), valid(other.valid) {
+		timers.start(DTIMER_FRAME_COPY_CONST);
 		data = allocate();
 		copyDataFromBuffer(other.data);
+		timers.pause(DTIMER_FRAME_COPY_CONST);
 	}
 	
 	// Getters and setters
@@ -65,11 +67,14 @@ public:
 
 	// Buffer access methods (protect data from abuse)
 	// Derived classes should override these for type safety
-	void copyDataFromBuffer(void* buffer) {
+	void copyDataFromBuffer(void* buffer, bool verbose = false, std::string context = "") {
 		try {
-			timers.start(5);
+			if (verbose) {
+				debugMessage("copyDataFromBuffer: context " + context, DEBUG_INFO);
+			}
+			timers.start(DTIMER_COPY_FROM);
 			std::memcpy(data, buffer, getBytes());
-			timers.pause(5);
+			timers.pause(DTIMER_COPY_FROM);
 		}
 		catch (...) {
 			valid = false;
@@ -77,9 +82,9 @@ public:
 	}
 	void copyDataToBuffer(void* buffer) {
 		try {
-			timers.start(5);
+			timers.start(DTIMER_COPY_TO);
 			std::memcpy(buffer, data, getBytes());
-			timers.pause(5);
+			timers.pause(DTIMER_COPY_TO);
 		}
 		catch (...) {
 			valid = false;
@@ -88,6 +93,7 @@ public:
 
 	// Assignment operator override
 	BaseFrame& operator=(const BaseFrame& other) { // deep copy
+		timers.start(DTIMER_FRAME_ASSIGN);
 		if (this != &other) {
 			width = other.width;
 			height = other.height;
@@ -96,9 +102,10 @@ public:
 			valid = other.valid;
 
 			timestamp = other.timestamp;
-			if (data == nullptr) data = allocate();
+			data = allocate(); // assignment operator is called on an uncontructed instance?
 			copyDataFromBuffer(other.data);
 		}
+		timers.pause(DTIMER_FRAME_ASSIGN);
 
 		return *this;
 	}

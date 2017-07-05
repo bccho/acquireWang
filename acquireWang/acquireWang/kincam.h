@@ -43,18 +43,22 @@ private:
 
 	WAITABLE_HANDLE frameEvent;
 
-	bool valid;
+	bool valid; // true if camera is valid
+	bool silent; // to silence error messages at beginning of kinect acquisition
 
 	void handleHRESULT(HRESULT hr, std::string whileDoing) {
 		if (hr != S_OK) {
 			_com_error err(hr);
-			debugMessage("Kinect camera error while " + whileDoing + ": " + err.ErrorMessage(), DEBUG_ERROR);
-			throw "Kinect camera error while " + whileDoing + ": " + err.ErrorMessage();
+			if (!silent) {
+				debugMessage("Kinect camera error while " + whileDoing + ": " + err.ErrorMessage(), DEBUG_ERROR);
+			}
+				throw "Kinect camera error while " + whileDoing + ": " + err.ErrorMessage();
 		}
 	}
 public:
 	KinectCamera() {
 		valid = true;
+		silent = false;
 		try {
 			HRESULT hr;
 			hr = GetDefaultKinectSensor(&kinectSensor);
@@ -108,6 +112,7 @@ public:
 		debugMessage("kinect initialize()", DEBUG_HIDDEN_INFO);
 		HRESULT hr = kinectSensor->Open();
 		handleHRESULT(hr, "opening Kinect sensor");
+		silent = true;
 	}
 
 	void finalize() override {
@@ -158,13 +163,19 @@ public:
 			hr = depthFrame->AccessUnderlyingBuffer(&depthBufferSize, &depthBuffer);
 			handleHRESULT(hr, "getting depth frame data");
 
-			depthFrame->Release();
-
 			// Copy frame
 			KinectFrame frame(getWidth(), getHeight());
 			frame.copyDataFromBuffer((kinect_t*) depthBuffer);
 
+			// Set timestamp
+			double newTimestamp = getClockStamp(); // get timestamp when received
+			frame.setTimestamp(newTimestamp);
+
+			// Release depth frame
+			depthFrame->Release();
+
 			debugMessage("Returning successful...", DEBUG_HIDDEN_INFO);
+			silent = false;
 			return frame;
 		}
 		catch (...) {

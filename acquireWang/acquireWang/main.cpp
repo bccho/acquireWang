@@ -71,6 +71,7 @@ void serialLoop(Serial* serial, std::string filename) {
 		//printf("%s", incomingData);
 		//csvFile << incomingData;
 		csvFile.write(incomingData, readResult);
+		csvFile.flush();
 	}
 	csvFile.close();
 }
@@ -78,7 +79,14 @@ void serialLoop(Serial* serial, std::string filename) {
 // Recording session
 int record(std::string& saveTitle, double duration) {
 	/* Start serial */
+	debugMessage("Searching for serial connection", DEBUG_INFO);
 	Serial* serial = new Serial("COM4", CBR_256000);
+	if (serial->IsConnected()) {
+		debugMessage("  Connection established", DEBUG_INFO);
+	}
+	else {
+		debugMessage("  Unable to establish connection", DEBUG_INFO);
+	}
 
 	/* Prepare acquirers */
 	debugMessage(std::to_string(cameras.size()) + " cameras", DEBUG_HIDDEN_INFO);
@@ -126,8 +134,8 @@ int record(std::string& saveTitle, double duration) {
 	PreviewWindow preview(960, 720, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
 		acquirers, *h5out, cameras, formats);
 	// Start acquisition
-	timers.pause(1);
-	timers.start(3);
+	timers.pause(DTIMER_PREP);
+	timers.start(DTIMER_ACQUISITION);
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->run();
 		acquirers[i]->beginAcquisition();
@@ -139,31 +147,36 @@ int record(std::string& saveTitle, double duration) {
 		serialThread = new std::thread(serialLoop, serial, saveTitle + "_daq.csv");
 	}
 	// Wait for cameras to be ready
+	debugMessage("Waiting for cameras to be ready...", DEBUG_INFO);
 	for (size_t i = 0; i < cameras.size(); i++) {
 		while (!cameras[i]->isReady()) {}
 	}
 	// Start GUI
 	preview.run();
+
 	/* Stop */
 	// End acquisition
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->endAcquisition();
 	}
-	stopSerialLoop = true;
-	timers.pause(3);
-	timers.start(2);
+	timers.pause(DTIMER_ACQUISITION);
+	timers.start(DTIMER_CLEANUP);
 
 	// Stop acquiring and saving (i.e. wait for threads to end)
 	// (This will block until acquisition and saving threads are joined)
 	for (size_t i = 0; i < cameras.size(); i++) {
 		acquirers[i]->abortAcquisition();
 	}
-	h5out->abortSaving();
 	// Stop serial
+	stopSerialLoop = true;
 	if (serialThread != nullptr) {
 		serialThread->join();
 		delete serialThread;
+		serialThread = nullptr;
 	}
+
+	// Stop saving but keep saving acquired frames
+	h5out->abortSaving(false); // wait for thread to be joined
 
 	// Write metadata
 	for (size_t i = 0; i < acquirers.size(); i++) {
@@ -257,7 +270,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < numPGcameras; i++) {
 		Spinnaker::CameraPtr pCam = camList.GetByIndex(i);
 		pCam->Init();
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 		// Get serial number
 		Spinnaker::GenApi::INodeMap& tldnmap = pCam->GetTLDeviceNodeMap();
 		Spinnaker::GenApi::CStringPtr node = tldnmap.GetNode("DeviceSerialNumber");
@@ -344,17 +357,18 @@ int main(int argc, char* argv[]) {
 		dcpls.push_back(pg_dcpl);
 	}
 
+	debugMessage("Initialization complete\n", DEBUG_INFO);
 	// Check number of cameras
 	if (cameras.size() == 0) {
 		debugMessage("No cameras to record from!", DEBUG_ERROR);
 	}
 	/* Recording loop */
 	else if (fixedlen) {
-		timers.start(0);
-		timers.start(1);
+		timers.start(DTIMER_OVERALL);
+		timers.start(DTIMER_PREP);
 		record(saveTitle, recordingDuration);
-		timers.pause(2);
-		timers.pause(0);
+		timers.pause(DTIMER_CLEANUP);
+		timers.pause(DTIMER_OVERALL);
 		printDebugTimerInfo();
 	}
 	else {
@@ -383,11 +397,11 @@ int main(int argc, char* argv[]) {
 
 			// Record!
 			try {
-				timers.start(0);
-				timers.start(1);
+				timers.start(DTIMER_OVERALL);
+				timers.start(DTIMER_PREP);
 				record(saveTitle + "-" + titleIndex, MAX_DURATION);
-				timers.pause(2);
-				timers.pause(0);
+				timers.pause(DTIMER_CLEANUP);
+				timers.pause(DTIMER_OVERALL);
 				printDebugTimerInfo();
 			}
 			catch (...) {

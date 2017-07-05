@@ -15,7 +15,7 @@ BaseSaver::BaseSaver(std::string& _filename, std::vector<BaseAcquirer*>& _acquir
 
 BaseSaver::~BaseSaver() {
 	debugMessage("~BaseSaver", DEBUG_HIDDEN_INFO);
-	if (saving) abortSaving();
+	if (saving) abortSaving(true);
 	debugMessage("~BaseSaver: joined", DEBUG_HIDDEN_INFO);
 }
 
@@ -24,9 +24,9 @@ BaseSaver::~BaseSaver() {
  * * * * * * * * * */
 
 bool BaseSaver::moveFrameToWriteBuffer(size_t acqIndex) {
-	timers.start(8);
+	timers.start(DTIMER_DEQUEUE);
 	BaseFrame dequeued = acquirers[acqIndex]->dequeue();
-	timers.pause(8);
+	timers.pause(DTIMER_DEQUEUE);
 	bool result = dequeued.isValid();
 	if (result) { writeBuffers[acqIndex].push_back(dequeued); }
 	return result;
@@ -35,7 +35,7 @@ bool BaseSaver::moveFrameToWriteBuffer(size_t acqIndex) {
 void BaseSaver::writeLoop() {
 	while (saving) {
 		// Move waiting frames to write buffers for each stream
-		timers.start(7);
+		timers.start(DTIMER_MOVE_WRITE);
 		//for (size_t i = 0; i < frameChunkSize * 2; i++) {
 		for (size_t i = 0; i < frameChunkSize; i++) {
 			bool allDone = true; // break if all cameras have no frames to dequeue
@@ -47,7 +47,7 @@ void BaseSaver::writeLoop() {
 				break;
 			}
 		}
-		timers.pause(7);
+		timers.pause(DTIMER_MOVE_WRITE);
 		
 		double leastSoFar = DBL_MAX;
 		size_t leastIndex = 0;

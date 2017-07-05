@@ -127,9 +127,10 @@ public:
 			for (size_t i = 0; i < numFrames; i++) {
 				writeBuffers[bufIndex][i].copyDataToBuffer(buffer + i * frameBytes);
 			}
-			timers.start(4);
+			timers.start(DTIMER_WRITE_FRAME);
 			datasets[bufIndex].write(buffer, datatypes[bufIndex], memspace, filespace);
-			timers.pause(4);
+			tsdatasets[bufIndex].flush(H5F_SCOPE_GLOBAL);
+			timers.pause(DTIMER_WRITE_FRAME);
 			//framesSaved[bufIndex] += numFrames;
 
 			delete[] buffer;
@@ -169,9 +170,10 @@ public:
 			for (size_t i = 0; i < numFrames; i++) {
 				*(buffer + i) = writeBuffers[bufIndex][i].getTimestamp();
 			}
-			timers.start(4);
+			timers.start(DTIMER_WRITE_FRAME);
 			tsdatasets[bufIndex].write(buffer, TIMESTAMP_H5T, memspace, filespace);
-			timers.pause(4);
+			tsdatasets[bufIndex].flush(H5F_SCOPE_GLOBAL);
+			timers.pause(DTIMER_WRITE_FRAME);
 			framesSaved[bufIndex] += numFrames;
 
 			delete[] buffer;

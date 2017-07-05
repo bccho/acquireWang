@@ -247,6 +247,10 @@ int main(int argc, char* argv[]) {
 	const unsigned int lz4_params[1] = { params["_lz4_block_size"] }; // block size in bytes (default = 1<<30 == 1.0 GB)
 	kin_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 	pg_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
+	// Enable the Snappy filter
+	const int H5Z_FILTER_SNAPPY = 32003;
+	kin_dcpl.setFilter(H5Z_FILTER_SNAPPY, H5Z_FLAG_MANDATORY);
+	pg_dcpl.setFilter(H5Z_FILTER_SNAPPY, H5Z_FLAG_MANDATORY);
 
 	/* Set up cameras */
 	// Initialize Point Grey system

@@ -107,19 +107,15 @@ void BaseAcquirer::emptyQueueGUI() {
 
 void BaseAcquirer::getAndEnqueue() {
 	try {
-		timers.start(6);
-		BaseFrame received = camera.getFrame(); // get frame from camera
-		timers.pause(6);
-		double timestamp = getClockStamp(); // get timestamp when received
+		timers.start(DTIMER_GET_FRAME);
+		BaseFrame& received = camera.getFrame(); // get frame from camera
+		timers.pause(DTIMER_GET_FRAME);
 		if (received.isValid()) { // i.e. success
-			// Get frame and set timestamp
-			received.setTimestamp(timestamp);
 			// Enqueue for GUI (implicit copy)
 			if (framesReceived % GUI_downsample_rate == 0) {
 				enqueueFrameGUI(received);
 			}
 			enqueueFrame(received);
-			debugMessage("getAndEnqueue() " + name + ": queue.peek() = " + std::to_string((long long) queue.peek()), DEBUG_HIDDEN_INFO);
 		} else {
 			debugMessage("Failed to receive " + name + " frame.", DEBUG_ERROR);
 		}

@@ -41,8 +41,10 @@ private:
 	Spinnaker::Camera* pCam;
 	bool triggeredAcquisition;
 
+	uint64_t init_timestamp_ns;
+	double init_timestamp_win;
+
 	void getCamFromSerial() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		//debugMessage("Getting camera list...", DEBUG_INFO);
 		Spinnaker::CameraList camlist = sys->GetCameras();
 		try {
@@ -64,6 +66,44 @@ private:
 		debugMessage("  Done.", DEBUG_INFO);
 	}
 
+	int isReady(bool checkAcquiring) {
+		/* Returns negative values if not; returns 0 if yes */
+		int result = -1; // somehow pCam variable access fails... should never return -1
+		try {
+			// Check pointer valid
+			while (pCam == nullptr) { // invalid pointer
+				debugMessage("pCam == nullptr", DEBUG_ERROR);
+				result = -2; // getting camera from camlist failed
+				return result;
+			}
+			result = -3; // pCam pointer dereference failed
+			while (!pCam->IsValid()) { // invalid pointer
+				debugMessage("pCam is not valid", DEBUG_ERROR);
+				result = -2; // getting camera from camlist failed
+				return result;
+			}
+
+			result = -3; // pCam pointer dereference failed
+			// Check initialized and acquiring; if not, try to fix it
+			if (!pCam->IsInitialized()) {
+				debugMessage("pCam is not initialized", DEBUG_ERROR);
+				result = -4; // initialize function call failed
+				return result;
+			}
+			result = -3; // pCam pointer dereference failed
+			if (checkAcquiring && !pCam->IsStreaming()) {
+				debugMessage("pCam is not acquiring", DEBUG_ERROR);
+				result = -5; // begin acquisition function call failed
+				return result;
+			}
+			result = 0; // all OK
+		}
+		catch (...) {
+			return result;
+		}
+		return result;
+	}
+
 	int ensureReady(bool ensureAcquiring) {
 		/* Returns negative values if not; returns 0 if yes */
 		int result = -1; // somehow pCam variable access fails... should never return -1
@@ -72,12 +112,14 @@ private:
 			while (pCam == nullptr) { // invalid pointer
 				debugMessage("pCam == nullptr", DEBUG_ERROR);
 				result = -2; // getting camera from camlist failed
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
 				getCamFromSerial();
 			}
 			result = -3; // pCam pointer dereference failed
 			while (!pCam->IsValid()) { // invalid pointer
 				debugMessage("pCam is not valid", DEBUG_ERROR);
 				result = -2; // getting camera from camlist failed
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
 				getCamFromSerial();
 			}
 
@@ -86,12 +128,14 @@ private:
 			if (!pCam->IsInitialized()) {
 				debugMessage("pCam is not initialized", DEBUG_ERROR);
 				result = -4; // initialize function call failed
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
 				initialize();
 			}
 			result = -3; // pCam pointer dereference failed
 			if (ensureAcquiring && !pCam->IsStreaming()) {
 				debugMessage("pCam is not acquiring", DEBUG_ERROR);
 				result = -5; // begin acquisition function call failed
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
 				pCam->BeginAcquisition();
 			}
 
@@ -142,9 +186,16 @@ public:
 		debugMessage("Initializing PG camera", DEBUG_HIDDEN_INFO);
 		try {
 			pCam->Init();
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
 			width = pCam->Width.GetValue();
 			height = pCam->Height.GetValue();
 			fps = pCam->AcquisitionFrameRate.GetValue();
+
+			// For aligning Point Grey timestamps with Windows timestamps
+			//pCam->TimestampReset.Execute();
+			//debugMessage("Init timestamp: " + std::to_string(pCam->Timestamp.GetValue()), DEBUG_INFO);
+			init_timestamp_ns = pCam->Timestamp.GetValue();
+			init_timestamp_win = getClockStamp();
 		}
 		catch (...) {
 			debugMessage("Error while initializing PG. Trying again...", DEBUG_ERROR);
@@ -203,6 +254,7 @@ public:
 		debugMessage("pg getFrame", DEBUG_HIDDEN_INFO);
 		try {
 			int res = ensureReady(true);
+			//int res = isReady(true);
 			if (res < 0) {
 				debugMessage("PG camera is not ready. Error message " + std::to_string(res), DEBUG_ERROR);
 				return BaseFrame();
@@ -224,8 +276,13 @@ public:
 			PointGreyFrame frame(getWidth(), getHeight());
 			frame.copyDataFromBuffer((pointgrey_t*) pgBuffer->GetData());
 
-			// TODO: Write timestamp
-			//frame.setTimestamp(pNewFrame->GetTimeStamp());
+			// Set timestamp TODO: more precise? Also kinect
+			//uint64_t nowTime = pNewFrame->GetTimeStamp();
+			//debugMessage(std::to_string(nowTime) + " - " + std::to_string(init_timestamp_ns) + " = " +
+			//	std::to_string((double)(nowTime - init_timestamp_ns)), DEBUG_INFO);
+			//double newTimestamp = (double)(nowTime - init_timestamp_ns) / 1000000000.0 + init_timestamp_win;
+			double newTimestamp = getClockStamp();
+			frame.setTimestamp(newTimestamp);
 
 			// Release image
 			pNewFrame->Release();

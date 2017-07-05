@@ -20,12 +20,14 @@ private:
 	bool valid;
 
 	double timestamp;
-	void* data;
 
 	// Allocates memory for data buffer
-	void* allocate() { return std::calloc(getNumPixels(), bytesPerPixel); }
+	void* allocate() {
+		return std::calloc(getNumPixels(), bytesPerPixel);
+	}
 
 public:
+	void* data;
 	// Constructor and destructor
 	BaseFrame(size_t _width, size_t _height, size_t _bytesPerPixel, size_t _channels) :
 			width(_width), height(_height), bytesPerPixel(_bytesPerPixel), channels(_channels),
@@ -47,8 +49,12 @@ public:
 	// Copy constructor (deep copy; calls assignment operator overload)
 	BaseFrame(const BaseFrame& other) : width(other.width), height(other.height), channels(other.channels),
 			bytesPerPixel(other.bytesPerPixel), timestamp(other.timestamp), valid(other.valid) {
-		data = allocate();
-		copyDataFromBuffer(other.data);
+		if (other.data != nullptr) {
+			timers.start(DTIMER_FRAME_COPY_CONST);
+			data = allocate();
+			copyDataFromBuffer(other.data);
+			timers.pause(DTIMER_FRAME_COPY_CONST);
+		}
 	}
 	
 	// Getters and setters
@@ -65,11 +71,14 @@ public:
 
 	// Buffer access methods (protect data from abuse)
 	// Derived classes should override these for type safety
-	void copyDataFromBuffer(void* buffer) {
+	void copyDataFromBuffer(void* buffer, bool verbose = false, std::string context = "") {
 		try {
-			timers.start(5);
+			if (verbose) {
+				debugMessage("copyDataFromBuffer: context " + context, DEBUG_INFO);
+			}
+			timers.start(DTIMER_COPY_FROM);
 			std::memcpy(data, buffer, getBytes());
-			timers.pause(5);
+			timers.pause(DTIMER_COPY_FROM);
 		}
 		catch (...) {
 			valid = false;
@@ -77,9 +86,9 @@ public:
 	}
 	void copyDataToBuffer(void* buffer) {
 		try {
-			timers.start(5);
+			timers.start(DTIMER_COPY_TO);
 			std::memcpy(buffer, data, getBytes());
-			timers.pause(5);
+			timers.pause(DTIMER_COPY_TO);
 		}
 		catch (...) {
 			valid = false;
@@ -88,6 +97,8 @@ public:
 
 	// Assignment operator override
 	BaseFrame& operator=(const BaseFrame& other) { // deep copy
+		//debugMessage("Assignment operator", DEBUG_INFO);
+		timers.start(DTIMER_FRAME_ASSIGN);
 		if (this != &other) {
 			width = other.width;
 			height = other.height;
@@ -96,9 +107,12 @@ public:
 			valid = other.valid;
 
 			timestamp = other.timestamp;
-			if (data == nullptr) data = allocate();
-			copyDataFromBuffer(other.data);
+			if (other.data != nullptr) {
+				data = allocate(); // assignment operator is called on an uncontructed instance?
+				copyDataFromBuffer(other.data);
+			}
 		}
+		timers.pause(DTIMER_FRAME_ASSIGN);
 
 		return *this;
 	}

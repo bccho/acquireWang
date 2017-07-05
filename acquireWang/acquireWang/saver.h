@@ -21,7 +21,7 @@ protected:
 	std::atomic<bool> saving; // Flag to indicate if saving should abort
 
 	// TODO: make a small class so that we have just one vector of that class?? Or is this okay...
-	std::vector< std::deque<BaseFrame> > writeBuffers; // Write buffer to pull frames off thread-safe queues
+	std::vector<std::deque<std::reference_wrapper<BaseFrame>>> writeBuffers; // Write buffer to pull frames off thread-safe queues
 	std::vector<size_t> framesSaved; // Numbers of frames saved for each acquirer/stream
 	std::vector<BaseAcquirer*>& acquirers; // Acquirers for reference
 private:
@@ -53,11 +53,12 @@ public:
 		}
 		return saving && result;
 	}
-	void abortSaving() {
-		saving = false;
+	void abortSaving(bool stopSaving) {
+		if (stopSaving) saving = false;
 		if (saveThread != nullptr) {
 			saveThread->join();
 			delete saveThread;
+			saveThread = nullptr;
 		}
 	}
 

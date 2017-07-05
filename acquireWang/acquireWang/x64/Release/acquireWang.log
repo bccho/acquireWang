@@ -1,10 +1,6 @@
-﻿  acquirer.cpp
-  debug.cpp
-  previewwindow.cpp
-  saver.cpp
-  main.cpp
-  serial.cpp
-  timer.cpp
+﻿  saver.cpp
+saver.cpp(32): warning C4311: 'type cast': pointer truncation from 'void *' to 'int'
+saver.cpp(32): warning C4302: 'type cast': truncation from 'void *' to 'int'
   Generating code
   Finished generating code
   acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.exe

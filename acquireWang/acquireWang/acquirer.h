@@ -73,9 +73,11 @@ public:
 	bool isAcquiring() { return acquiring && framesReceived < framesToAcquire; }
 	void abortAcquisition() {
 		acquiring = false;
+		framesToAcquire = framesReceived;
 		if (acquireThread != nullptr) {
 			acquireThread->join();
 			delete acquireThread;
+			acquireThread = nullptr;
 		}
 	}
 	

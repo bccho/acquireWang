@@ -1,7 +1,7 @@
 {
     "fps": 40,
-    "exposure": 10000,
-    "gain": 3,
+    "exposure": 9000,
+    "gain": 5,
     "trigger_acquisition": "off",
     "output_exposure": "on"
 }

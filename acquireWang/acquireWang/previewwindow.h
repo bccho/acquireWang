@@ -103,13 +103,16 @@ public:
 						BaseFrame frame = acquirers[i]->getMostRecentGUI();
 						if (frame.isValid()) {
 							std::string frameTitle = acquirers[i]->getName();
-							if (acquirers[i]->getCamType() == CAMERA_PG) {
-								PointGreyCamera* pCam = dynamic_cast<PointGreyCamera*>(cameras[i]);
-								if (pCam != nullptr) {
-									frameTitle += " (SN " + pCam->getSerial() + ": temperature " +
-										std::to_string(pCam->getTemperature()) + " C)";
+							try {
+								if (acquirers[i]->getCamType() == CAMERA_PG) {
+									PointGreyCamera* pCam = dynamic_cast<PointGreyCamera*>(cameras[i]);
+									if (pCam != nullptr) {
+										frameTitle += " (SN " + pCam->getSerial() + ": temperature " +
+											std::to_string(pCam->getTemperature()) + " C)";
+									}
 								}
 							}
+							catch (...) {}
 							showFrame(i, frame, rx, ry, buf_w, y0 - ry, frameTitle);
 						}
 						// Progress bars

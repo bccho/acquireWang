@@ -259,6 +259,7 @@ int main(int argc, char* argv[]) {
 	// TODO: make a class to hold camnames, dtypes, etc.
 	KinectCamera* kincam = new KinectCamera;
 	if (kincam->isValid()) {
+		debugMessage("Found valid Kinect camera", DEBUG_INFO);
 		cameras.push_back(kincam);
 		camnames.push_back("kinect");
 		formats.push_back(DEPTH_16BIT);
@@ -310,14 +311,14 @@ int main(int argc, char* argv[]) {
 				std::string val = item.value().get<std::string>();
 				std::transform(val.begin(), val.end(), val.begin(), ::toupper);
 				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
-					// Configure line 2
-					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line2);
+					// Configure line 0
+					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line0);
 					pCam->LineMode.SetValue(Spinnaker::LineMode_Input); // set line 2 to input
-					pCam->LineSource.SetValue(Spinnaker::LineSource_Off); // turn off line source for line 2
+					pCam->LineSource.SetValue(Spinnaker::LineSource_Off); // turn off line source for line 0
 					// Configure trigger
 					pCam->TriggerSelector.SetValue(Spinnaker::TriggerSelector_AcquisitionStart); // set trigger to begin acquisition
 					pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_On); // turn on trigger mode
-					pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line2); // set line 2 as trigger source
+					pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line0); // set line 0 as trigger source
 					pCam->TriggerActivation.SetValue(Spinnaker::TriggerActivation_RisingEdge); // trigger on rising edge
 					pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
 					triggeredAcquisition = true;
@@ -337,7 +338,7 @@ int main(int argc, char* argv[]) {
 				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
 					if (triggeredAcquisition) {
 						// TODO: make these not mutually exclusive! I.e. figure out pull-ups etc. on line 1
-						debugMessage("Warning: Line 2 will be reconfigured for output exposure signal.", DEBUG_INFO);
+						// debugMessage("Warning: Line 2 will be reconfigured for output exposure signal.", DEBUG_INFO);
 					}
 					// Configure line 2
 					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line2);

@@ -108,7 +108,7 @@ void BaseAcquirer::emptyQueueGUI() {
 void BaseAcquirer::getAndEnqueue() {
 	try {
 		timers.start(DTIMER_GET_FRAME);
-		BaseFrame& received = camera.getFrame(); // get frame from camera
+		BaseFrame received = camera.getFrame(); // get frame from camera
 		timers.pause(DTIMER_GET_FRAME);
 		if (received.isValid()) { // i.e. success
 			// Enqueue for GUI (implicit copy)

@@ -52,7 +52,7 @@ private:
 			if (!silent) {
 				debugMessage("Kinect camera error while " + whileDoing + ": " + err.ErrorMessage(), DEBUG_ERROR);
 			}
-				throw "Kinect camera error while " + whileDoing + ": " + err.ErrorMessage();
+			throw "Kinect camera error while " + whileDoing + ": " + err.ErrorMessage();
 		}
 	}
 public:
@@ -61,8 +61,21 @@ public:
 		silent = false;
 		try {
 			HRESULT hr;
+
 			hr = GetDefaultKinectSensor(&kinectSensor);
 			handleHRESULT(hr, "detecting Kinect");
+
+			// See if sensor available
+			if (!kinectSensor) {
+				debugMessage("No Kinect camera available", DEBUG_ERROR);
+				throw "No Kinect camera available";
+			}
+			BOOLEAN isAvailable = true;
+			hr = kinectSensor->get_IsAvailable(&isAvailable);
+			if (FAILED(hr) || !isAvailable) {
+				debugMessage("No Kinect camera available", DEBUG_ERROR);
+				throw "No Kinect camera available";
+			}
 
 			// Open sensor
 			hr = kinectSensor->Open();

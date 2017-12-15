@@ -349,7 +349,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		pCam->DeInit();
-		// Add camera along with serial number
+		// Add camera along with system reference
 		cameras.push_back(new PointGreyCamera(system.operator->(), pCam, triggeredAcquisition));
 		// Add to camnames, dtypes, etc.
 		camnames.push_back("pg" + std::to_string(i));

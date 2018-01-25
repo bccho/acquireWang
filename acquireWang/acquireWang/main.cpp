@@ -108,7 +108,8 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 	}
 	// Set up file access property list
 	H5::FileAccPropList fapl;
-	fapl.setCache(65536000, (size_t)config["_rdcc_nslots"], (size_t)config["_rdcc_nbytes"], 0);
+	fapl.setCache((int)config["_mdc_nelmnts"], (size_t)config["_rdcc_nslots"],
+		(size_t)config["_rdcc_nbytes"], 0);
 	// Create saving object
 	H5Out* h5out = new H5Out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
@@ -135,9 +136,6 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 	}
 
 	/* Start */
-	// Prepare GUI
-	PreviewWindow preview(960, 720, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
-		acquirers, *h5out, cameras, formats);
 	// Start acquisition
 	timers.pause(DTIMER_PREP);
 	timers.start(DTIMER_ACQUISITION);
@@ -152,7 +150,7 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 		serialThread = new std::thread(serialLoop, serial, saveTitle + "_daq.csv");
 	}
 	if (triggeredAcquisition) {
-		debugMessage("Press any key to trigger cameras.", DEBUG_MUST_SHOW);
+		debugMessage("Press enter to trigger cameras.", DEBUG_MUST_SHOW);
 		std::cin.ignore();
 		sendSerialTrigger(serial);
 		debugMessage("Trigger signal sent.", DEBUG_INFO);
@@ -165,6 +163,8 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 		}
 	}
 	// Start GUI
+	PreviewWindow preview(960, 720, "Wang Lab behavior acquisition tool (press Q to stop acquisition)",
+		acquirers, *h5out, cameras, formats);
 	preview.run();
 
 	/* Stop */
@@ -271,13 +271,24 @@ int main(int argc, char* argv[]) {
 
 	// Triggered acquisition?
 	bool triggeredAcquisition = false;
+	double triggerInterval = 0;
 	json::iterator item = config.find("trigger_acquisition");
 	if (item != config.end()) {
 		std::string val = item.value().get<std::string>();
 		std::transform(val.begin(), val.end(), val.begin(), ::toupper);
 		if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
 			triggeredAcquisition = true;
-			debugMessage("Config: setting trigger for acquisition start", DEBUG_INFO);
+			debugMessage("Config: Setting trigger for acquisition start", DEBUG_INFO);
+		}
+
+		// Trigger interval
+		json::iterator item = config.find("trigger_interval");
+		if (item != config.end()) {
+			double val = item.value().get<double>();
+			if (val > 0) {
+				triggerInterval = val;
+				debugMessage("        Trigger interval: " + std::to_string(triggerInterval) + " s", DEBUG_INFO);
+			}
 		}
 	}
 
@@ -308,7 +319,7 @@ int main(int argc, char* argv[]) {
 			debugMessage("Point Grey configuration file found: " + pg_config_filename, DEBUG_INFO);
 			json pg_config = readJSON(pg_config_filename);
 			// Exposure
-			json::iterator item = pg_config.find("exposure");
+			item = pg_config.find("exposure");
 			if (item != pg_config.end()) {
 				double val = item.value().get<double>();
 				pCam->ExposureAuto.SetValue(Spinnaker::ExposureAuto_Off); // turn off auto-exposure

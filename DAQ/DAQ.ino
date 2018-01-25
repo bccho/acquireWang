@@ -82,6 +82,7 @@ void loop() {
   /*** Record timestamps when values change ***/
   int vals[NUM_INPUTS];
   bool changed = false;
+  long recordTime = micros();
   for (int i = 0; i < NUM_INPUTS; i++) {
     // Read pin values
     vals[i] = digitalRead(PIN_INPUTS[i]) == HIGH;
@@ -94,9 +95,7 @@ void loop() {
   }
   
   if (changed) {
-    // Get current time
-    unsigned long nowTime = micros();
     // Output to serial dump
-    printValues(nowTime - startTime, vals);
+    printValues(recordTime - startTime, vals);
   }
 }

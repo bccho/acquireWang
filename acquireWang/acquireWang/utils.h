@@ -35,6 +35,8 @@ json readConfig() {
 		config = json::parse(buf.str());
 	}
 	else {
+		/* TODO: some sort of defaultdict set-up with "getParam" function; templated. */
+
 		/* Create JSON file with defaults */
 		// Video parameters
 		config["_frameChunkSize"] = 50;

@@ -1,10 +1,4 @@
-﻿  acquirer.cpp
-  debug.cpp
-  previewwindow.cpp
-  saver.cpp
-  main.cpp
-  serial.cpp
-  timer.cpp
+﻿  main.cpp
   Generating code
   Finished generating code
   acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.exe

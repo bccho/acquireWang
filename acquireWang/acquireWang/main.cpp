@@ -82,15 +82,26 @@ void serialLoop(Serial* serial, std::string filename) {
 }
 
 // Recording session
-int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
+int record(std::string& saveTitle, double duration, bool triggeredAcquisition, unsigned long triggerInterval) {
 	/* Start serial */
-	debugMessage("Searching for serial connection", DEBUG_INFO);
-	Serial* serial = new Serial(config["DAQ_port"].get<std::string>().c_str(), CBR_256000);
-	if (serial->IsConnected()) {
-		debugMessage("  Connection established", DEBUG_INFO);
-	}
-	else {
-		debugMessage("  Unable to establish connection", DEBUG_INFO);
+	Serial* serial = nullptr;
+	json::iterator item = config.find("DAQ_port");
+	if (item != config.end()) {
+		std::string val = item.value().get<std::string>();
+		debugMessage("Searching for serial connection", DEBUG_INFO);
+		serial = new Serial(val.c_str(), CBR_256000);
+		if (serial->IsConnected()) {
+			debugMessage("  Connection established", DEBUG_INFO);
+			std::string msg = std::to_string(triggerInterval) + "\n";
+			serial->WriteData(msg.c_str(), msg.length());
+		}
+		else {
+			debugMessage("  Unable to establish connection", DEBUG_INFO);
+			if (triggeredAcquisition) {
+				triggeredAcquisition = false;
+				debugMessage("  Turned off triggered acquisition", DEBUG_INFO);
+			}
+		}
 	}
 
 	/* Prepare acquirers */
@@ -146,10 +157,10 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 	// Start serial thread
 	stopSerialLoop = false;
 	std::thread* serialThread = nullptr;
-	if (serial->IsConnected()) {
+	if (serial != nullptr && serial->IsConnected()) {
 		serialThread = new std::thread(serialLoop, serial, saveTitle + "_daq.csv");
 	}
-	if (triggeredAcquisition) {
+	if (serial != nullptr && serial->IsConnected() && triggeredAcquisition) {
 		debugMessage("Press enter to trigger cameras.", DEBUG_MUST_SHOW);
 		std::cin.ignore();
 		sendSerialTrigger(serial);
@@ -186,6 +197,10 @@ int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 		serialThread->join();
 		delete serialThread;
 		serialThread = nullptr;
+	}
+	if (serial != nullptr) {
+		delete serial;
+		serial = nullptr;
 	}
 
 	// Stop saving but keep saving acquired frames
@@ -271,7 +286,7 @@ int main(int argc, char* argv[]) {
 
 	// Triggered acquisition?
 	bool triggeredAcquisition = false;
-	double triggerInterval = 0;
+	unsigned long triggerInterval = 0;
 	json::iterator item = config.find("trigger_acquisition");
 	if (item != config.end()) {
 		std::string val = item.value().get<std::string>();
@@ -280,14 +295,15 @@ int main(int argc, char* argv[]) {
 			triggeredAcquisition = true;
 			debugMessage("Config: Setting trigger for acquisition start", DEBUG_INFO);
 		}
-
-		// Trigger interval
-		json::iterator item = config.find("trigger_interval");
+	}
+	// Trigger interval
+	if (triggeredAcquisition) {
+		item = config.find("trigger_interval");
 		if (item != config.end()) {
-			double val = item.value().get<double>();
+			double val = item.value().get<unsigned long>();
 			if (val > 0) {
 				triggerInterval = val;
-				debugMessage("        Trigger interval: " + std::to_string(triggerInterval) + " s", DEBUG_INFO);
+				debugMessage("        Trigger interval: " + std::to_string(triggerInterval) + " us", DEBUG_INFO);
 			}
 		}
 	}
@@ -352,7 +368,8 @@ int main(int argc, char* argv[]) {
 				pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_On); // turn on trigger mode
 				pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line0); // set line 0 as trigger source
 				pCam->TriggerActivation.SetValue(Spinnaker::TriggerActivation_RisingEdge); // trigger on rising edge
-				pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
+				// pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
+				pCam->TriggerDelay.SetValue(500);
 				debugMessage("    Trigger for acquisition start turned ON for line 0", DEBUG_INFO);
 				debugMessage("      Trigger delay is " + std::to_string(pCam->TriggerDelay.GetValue()) + " us", DEBUG_INFO);
 			}
@@ -394,7 +411,7 @@ int main(int argc, char* argv[]) {
 	else if (fixedlen) {
 		timers.start(DTIMER_OVERALL);
 		timers.start(DTIMER_PREP);
-		record(saveTitle, recordingDuration, triggeredAcquisition);
+		record(saveTitle, recordingDuration, triggeredAcquisition, triggerInterval);
 		timers.pause(DTIMER_CLEANUP);
 		timers.pause(DTIMER_OVERALL);
 		printDebugTimerInfo();
@@ -427,7 +444,7 @@ int main(int argc, char* argv[]) {
 			try {
 				timers.start(DTIMER_OVERALL);
 				timers.start(DTIMER_PREP);
-				record(saveTitle + "-" + titleIndex, MAX_DURATION, triggeredAcquisition);
+				record(saveTitle + "-" + titleIndex, MAX_DURATION, triggeredAcquisition, triggerInterval);
 				timers.pause(DTIMER_CLEANUP);
 				timers.pause(DTIMER_OVERALL);
 				printDebugTimerInfo();

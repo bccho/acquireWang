@@ -92,7 +92,7 @@ private:
 			}
 			result = -3; // pCam pointer dereference failed
 			if (checkAcquiring && !pCam->IsStreaming()) {
-				debugMessage("pCam is not acquiring", DEBUG_ERROR);
+				debugMessage("pCam is not acquiring", DEBUG_HIDDEN_INFO);
 				result = -5; // begin acquisition function call failed
 				return result;
 			}

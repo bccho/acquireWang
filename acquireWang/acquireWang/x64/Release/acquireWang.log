@@ -1,5 +1,11 @@
-﻿  main.cpp
+﻿  acquirer.cpp
+  debug.cpp
+  previewwindow.cpp
+  saver.cpp
+  main.cpp
+  serial.cpp
+  timer.cpp
   Generating code
   Finished generating code
-  acquireWang.vcxproj -> C:\code\acquireWang\acquireWang\x64\Release\acquireWang.exe
-  acquireWang.vcxproj -> C:\code\acquireWang\acquireWang\x64\Release\acquireWang.pdb (Full PDB)
+  acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.exe
+  acquireWang.vcxproj -> F:\bccho\code\acquisition\acquireWang\x64\Release\acquireWang.pdb (Full PDB)

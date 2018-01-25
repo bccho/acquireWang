@@ -1,60 +1,102 @@
 #include <stdio.h>
 
 // Pins
-#define PIN_IN1 3
-#define PIN_IN2 4
-#define PIN_IN3 5
+#define NUM_INPUTS 3
+const int PIN_INPUTS[] = {3, 4, 5};
+#define PIN_TRIGGER 8
 #define PIN_LED 13
+
+const char TRIGGER_CHAR = 'T';
 
 // Timing
 unsigned long startTime;
 
 // String buffer
-char strBuffer[128];
+#define BUFFER_SIZE 128
+char strBuffer[BUFFER_SIZE];
 
 // Stored values
-int stored_val1;
-int stored_val2;
+int stored_vals[NUM_INPUTS];
+
+void printValues(unsigned long _time, int _vals[]) {
+  sprintf(strBuffer, "%9lu", _time);
+  Serial.print(strBuffer);
+  for (int i = 0; i < NUM_INPUTS; i++) {
+    sprintf(strBuffer, ", %10d", _vals[i]);
+    Serial.print(strBuffer);
+  }
+  Serial.print("\n");
+}
+
+/*** Send trigger if requested ***/
+void serialEvent() {
+  if (Serial.available() > 0) {
+    char received = Serial.read();
+    // Send trigger if we received the trigger character from serial.
+    if (received == TRIGGER_CHAR) { sendTrigger(); }
+    // Clear input buffer
+    while (Serial.available() > 0) { received = Serial.read(); }
+  }
+}
+
+void sendTrigger() {
+  digitalWrite(PIN_TRIGGER, HIGH);
+  long triggerTime = micros();
+  sprintf(strBuffer, "%9lu, Trigger!\n", triggerTime - startTime);
+  Serial.print(strBuffer);
+  digitalWrite(PIN_TRIGGER, LOW);
+}
 
 /* Initialization */
 void setup() {
   // Set up serial
   Serial.begin(256000);
-  Serial.print("Time (us), val1 (new), val2 (new)\n");
+  Serial.print("Time (us)");
+  for (int i = 0; i < NUM_INPUTS; i++) {
+    sprintf(strBuffer, ", val%d (new)", i + 1);
+    Serial.print(strBuffer);
+  }
+  Serial.print("\n");
 
   // Set up pins
-  pinMode(PIN_IN1, INPUT_PULLUP);
-  pinMode(PIN_IN2, INPUT_PULLUP);
+  for (int i = 0; i < NUM_INPUTS; i++) {
+    pinMode(PIN_INPUTS[i], INPUT_PULLUP);
+  }
+  pinMode(PIN_TRIGGER, OUTPUT);
   pinMode(PIN_LED, OUTPUT);
+  
+  digitalWrite(PIN_TRIGGER, LOW);
 
   // Store initial values
-  stored_val1 = digitalRead(PIN_IN1) == HIGH;
-  stored_val2 = digitalRead(PIN_IN2) == HIGH;
+  for (int i = 0; i < NUM_INPUTS; i++) {
+    stored_vals[i] = digitalRead(PIN_INPUTS[i]) == HIGH;
+  }
 
   // Start timing
   startTime = micros();
-  dumpSerial(micros() - startTime, stored_val1, stored_val2);
+  printValues(micros() - startTime, stored_vals);
 }
 
 /* Main program loop */
 void loop() {
-  // Read pin values
-  int val1 = digitalRead(PIN_IN1) == HIGH;
-  int val2 = digitalRead(PIN_IN2) == HIGH;
-  // Check if values have changed
-  if (val1 != stored_val1 || val2 != stored_val2) {
-    // Update stored values
-    stored_val1 = val1;
-    stored_val2 = val2;
+  /*** Record timestamps when values change ***/
+  int vals[NUM_INPUTS];
+  bool changed = false;
+  for (int i = 0; i < NUM_INPUTS; i++) {
+    // Read pin values
+    vals[i] = digitalRead(PIN_INPUTS[i]) == HIGH;
+    // Check if values have changed
+    if (vals[i] != stored_vals[i]) {
+      // Update stored values
+      stored_vals[i] = vals[i];
+      changed = true;
+    }
+  }
+  
+  if (changed) {
     // Get current time
     unsigned long nowTime = micros();
     // Output to serial dump
-    dumpSerial(nowTime - startTime, val1, val2);
+    printValues(nowTime - startTime, vals);
   }
 }
-
-void dumpSerial(unsigned long _time, int _val1, int _val2) {
-  sprintf(strBuffer, "%11lu, %1d, %1d\n", _time, _val1, _val2);
-  Serial.print(strBuffer);
-}
-

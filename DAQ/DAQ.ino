@@ -10,6 +10,9 @@ const char TRIGGER_CHAR = 'T';
 
 // Timing
 unsigned long startTime;
+unsigned long lastTriggerTime;
+unsigned long triggerInterval;
+bool started = false;
 
 // String buffer
 #define BUFFER_SIZE 128
@@ -18,6 +21,7 @@ char strBuffer[BUFFER_SIZE];
 // Stored values
 int stored_vals[NUM_INPUTS];
 
+/* Print timestamp and input pin values to serial */
 void printValues(unsigned long _time, int _vals[]) {
   sprintf(strBuffer, "%9lu", _time);
   Serial.print(strBuffer);
@@ -40,17 +44,25 @@ void serialEvent() {
 }
 
 void sendTrigger() {
-  digitalWrite(PIN_TRIGGER, HIGH);
   long triggerTime = micros();
+  digitalWrite(PIN_TRIGGER, HIGH);
   sprintf(strBuffer, "%9lu, Trigger!\n", triggerTime - startTime);
   Serial.print(strBuffer);
   digitalWrite(PIN_TRIGGER, LOW);
+  lastTriggerTime = triggerTime;
+  started = true;
 }
 
 /* Initialization */
 void setup() {
   // Set up serial
   Serial.begin(256000);
+  triggerInterval = (unsigned long)Serial.parseInt();
+  Serial.print("Trigger interval: ");
+  Serial.print(triggerInterval, DEC);
+  Serial.print(" us\n");
+
+  // Print CSV header
   Serial.print("Time (us)");
   for (int i = 0; i < NUM_INPUTS; i++) {
     sprintf(strBuffer, ", val%d (new)", i + 1);
@@ -97,5 +109,10 @@ void loop() {
   if (changed) {
     // Output to serial dump
     printValues(recordTime - startTime, vals);
+  }
+
+  /*** If it's time to trigger, trigger. ***/
+  if (started && triggerInterval > 0 && recordTime - lastTriggerTime > triggerInterval) {
+    sendTrigger();
   }
 }

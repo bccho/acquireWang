@@ -35,7 +35,7 @@
 
 /* Global variables */
 size_t frameChunkSize;
-std::map<std::string, size_t> params;
+json config;
 
 // For threads
 std::atomic<bool> stopSerialLoop;
@@ -48,6 +48,11 @@ std::vector<PredType> dtypes;
 std::vector<DSetCreatPropList> dcpls;
 
 /* Methods */
+bool sendSerialTrigger(Serial* serial) {
+	if (!serial->IsConnected()) return false;
+	return serial->WriteData("T", 1);
+}
+
 // Serial thread loop
 void serialLoop(Serial* serial, std::string filename) {
 	// Preallocate memory
@@ -77,10 +82,10 @@ void serialLoop(Serial* serial, std::string filename) {
 }
 
 // Recording session
-int record(std::string& saveTitle, double duration) {
+int record(std::string& saveTitle, double duration, bool triggeredAcquisition) {
 	/* Start serial */
 	debugMessage("Searching for serial connection", DEBUG_INFO);
-	Serial* serial = new Serial("COM4", CBR_256000);
+	Serial* serial = new Serial(config["DAQ_port"].get<std::string>().c_str(), CBR_256000);
 	if (serial->IsConnected()) {
 		debugMessage("  Connection established", DEBUG_INFO);
 	}
@@ -103,7 +108,7 @@ int record(std::string& saveTitle, double duration) {
 	}
 	// Set up file access property list
 	H5::FileAccPropList fapl;
-	fapl.setCache(65536000, params["_rdcc_nslots"], params["_rdcc_nbytes"], 0);
+	fapl.setCache(65536000, (size_t)config["_rdcc_nslots"], (size_t)config["_rdcc_nbytes"], 0);
 	// Create saving object
 	H5Out* h5out = new H5Out(saveTitle + ".h5", acquirers, frameChunkSize, camnames, dtypes,
 		H5::FileCreatPropList::DEFAULT, fapl, dcpls);
@@ -146,10 +151,18 @@ int record(std::string& saveTitle, double duration) {
 	if (serial->IsConnected()) {
 		serialThread = new std::thread(serialLoop, serial, saveTitle + "_daq.csv");
 	}
-	// Wait for cameras to be ready
-	debugMessage("Waiting for cameras to be ready...", DEBUG_INFO);
-	for (size_t i = 0; i < cameras.size(); i++) {
-		while (!cameras[i]->isReady()) {}
+	if (triggeredAcquisition) {
+		debugMessage("Press any key to trigger cameras.", DEBUG_MUST_SHOW);
+		std::cin.ignore();
+		sendSerialTrigger(serial);
+		debugMessage("Trigger signal sent.", DEBUG_INFO);
+	}
+	else {
+		// Wait for cameras to be ready
+		debugMessage("Waiting for cameras to be ready...", DEBUG_INFO);
+		for (size_t i = 0; i < cameras.size(); i++) {
+			while (!cameras[i]->isReady()) {}
+		}
 	}
 	// Start GUI
 	preview.run();
@@ -190,7 +203,7 @@ int record(std::string& saveTitle, double duration) {
 			}
 		}
 	}
-	h5out->writeScalarAttribute("deflate", params["_compression"]);
+	h5out->writeScalarAttribute("deflate", (int)config["_compression"]);
 
 	// Finalize
 	delete h5out;
@@ -210,7 +223,8 @@ int main(int argc, char* argv[]) {
 	double recordingDuration(0); // minutes
 	bool fixedlen = true;
 	if (argc < 2) {
-		debugMessage("Usage:\n\tacquireWang.exe filename [numMinutes = 0]", DEBUG_MUST_SHOW);
+		debugMessage("Usage:", DEBUG_MUST_SHOW);
+		debugMessage("    acquireWang.exe filename [numMinutes = 0]", DEBUG_MUST_SHOW);
 		exit(EXIT_FAILURE);
 	}
 	else if (argc == 2) { // if numMinutes not specified, run without fixed length
@@ -222,29 +236,29 @@ int main(int argc, char* argv[]) {
 	std::string saveTitle = std::string(argv[1]);
 
 	/* Read configuration file */
-	params = readConfig();
+	config = readConfig();
 
-	frameChunkSize = params["_frameChunkSize"];
+	frameChunkSize = (size_t)config["_frameChunkSize"];
 
 	/* Set up HDF5 DCPLs */
 	// Set up dataset creation property lists
 	H5::DSetCreatPropList kin_dcpl;
 	const int frame_ndims = 4;
-	size_t kin_chunk_dims[frame_ndims] = { frameChunkSize, 1, params["_kinectYchunk"], params["_kinectXchunk"] };
+	size_t kin_chunk_dims[frame_ndims] = { frameChunkSize, 1, (size_t)config["_kinectYchunk"], (size_t)config["_kinectXchunk"] };
 	kin_dcpl.setChunk(frame_ndims, kin_chunk_dims);
 	H5::DSetCreatPropList pg_dcpl;
-	size_t pg_chunk_dims[frame_ndims] = { frameChunkSize, 1, params["_pgYchunk"], params["_pgXchunk"] };
+	size_t pg_chunk_dims[frame_ndims] = { frameChunkSize, 1, (size_t)config["_pgYchunk"], (size_t)config["_pgXchunk"] };
 	pg_dcpl.setChunk(frame_ndims, pg_chunk_dims);
-	if (params["_compression"] > 0) {
-		kin_dcpl.setDeflate(params["_compression"]);
-		pg_dcpl.setDeflate(params["_compression"]);
+	if ((int)config["_compression"] > 0) { // GZIP compression
+		kin_dcpl.setDeflate((int)config["_compression"]);
+		pg_dcpl.setDeflate((int)config["_compression"]);
 	}
 	// Enable shuffle filter
 	kin_dcpl.setShuffle();
 	pg_dcpl.setShuffle();
 	// Enable the LZ4 filter
 	const int H5Z_FILTER_LZ4 = 32004;
-	const unsigned int lz4_params[1] = { params["_lz4_block_size"] }; // block size in bytes (default = 1<<30 == 1.0 GB)
+	const unsigned int lz4_params[1] = { (unsigned int)config["_lz4_block_size"] }; // block size in bytes (default = 1<<30 == 1.0 GB)
 	kin_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 	pg_dcpl.setFilter(H5Z_FILTER_LZ4, H5Z_FLAG_MANDATORY, 1, lz4_params);
 
@@ -254,6 +268,18 @@ int main(int argc, char* argv[]) {
 	Spinnaker::CameraList camList = system->GetCameras();
 	int numPGcameras = camList.GetSize();
 	debugMessage("Connected Point Grey devices: " + std::to_string(numPGcameras), DEBUG_INFO);
+
+	// Triggered acquisition?
+	bool triggeredAcquisition = false;
+	json::iterator item = config.find("trigger_acquisition");
+	if (item != config.end()) {
+		std::string val = item.value().get<std::string>();
+		std::transform(val.begin(), val.end(), val.begin(), ::toupper);
+		if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
+			triggeredAcquisition = true;
+			debugMessage("Config: setting trigger for acquisition start", DEBUG_INFO);
+		}
+	}
 
 	// Set up Kinect camera
 	// TODO: make a class to hold camnames, dtypes, etc.
@@ -278,7 +304,6 @@ int main(int argc, char* argv[]) {
 		std::string serial = node->GetValue();
 		// If config file with this serial number exists, apply settings
 		std::string pg_config_filename = "pg" + serial + ".json";
-		bool triggeredAcquisition = false;
 		if (fileExists(pg_config_filename)) {
 			debugMessage("Point Grey configuration file found: " + pg_config_filename, DEBUG_INFO);
 			json pg_config = readJSON(pg_config_filename);
@@ -306,29 +331,24 @@ int main(int argc, char* argv[]) {
 				debugMessage("    Set frame rate = " + std::to_string(val), DEBUG_INFO);
 			}
 			// Triggered acquisition?
-			item = pg_config.find("trigger_acquisition");
-			if (item != pg_config.end()) {
-				std::string val = item.value().get<std::string>();
-				std::transform(val.begin(), val.end(), val.begin(), ::toupper);
-				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
-					// Configure line 0
-					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line0);
-					pCam->LineMode.SetValue(Spinnaker::LineMode_Input); // set line 2 to input
-					pCam->LineSource.SetValue(Spinnaker::LineSource_Off); // turn off line source for line 0
-					// Configure trigger
-					pCam->TriggerSelector.SetValue(Spinnaker::TriggerSelector_AcquisitionStart); // set trigger to begin acquisition
-					pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_On); // turn on trigger mode
-					pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line0); // set line 0 as trigger source
-					pCam->TriggerActivation.SetValue(Spinnaker::TriggerActivation_RisingEdge); // trigger on rising edge
-					pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
-					triggeredAcquisition = true;
-					debugMessage("    Trigger for acquisition start turned ON", DEBUG_INFO);
-					debugMessage("      Trigger delay is " + std::to_string(pCam->TriggerDelay.GetValue()) + " us", DEBUG_INFO);
-				}
-				else {
-					pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_Off); // turn off trigger mode
-					debugMessage("    Trigger for acquisition start turned OFF", DEBUG_INFO);
-				}
+			if (triggeredAcquisition) {
+				// Configure line 0
+				pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line0);
+				pCam->LineMode.SetValue(Spinnaker::LineMode_Input); // set line 0 to input
+				pCam->LineSource.SetValue(Spinnaker::LineSource_Off); // turn off line source for line 0
+				// Configure trigger
+				pCam->TriggerSelector.SetValue(Spinnaker::TriggerSelector_AcquisitionStart); // set trigger to begin acquisition
+				pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_On); // turn on trigger mode
+				pCam->TriggerSource.SetValue(Spinnaker::TriggerSource_Line0); // set line 0 as trigger source
+				pCam->TriggerActivation.SetValue(Spinnaker::TriggerActivation_RisingEdge); // trigger on rising edge
+				pCam->TriggerDelay.SetValue(pCam->TriggerDelay.GetMin()); // minimize trigger delay
+				debugMessage("    Trigger for acquisition start turned ON for line 0", DEBUG_INFO);
+				debugMessage("      Trigger delay is " + std::to_string(pCam->TriggerDelay.GetValue()) + " us", DEBUG_INFO);
+			}
+			else {
+				pCam->TriggerSelector.SetValue(Spinnaker::TriggerSelector_AcquisitionStart); // select type of trigger
+				pCam->TriggerMode.SetValue(Spinnaker::TriggerMode_Off); // turn off trigger mode
+				debugMessage("    Trigger for acquisition start turned OFF", DEBUG_INFO);
 			}
 			// Output exposure signal?
 			item = pg_config.find("output_exposure");
@@ -336,15 +356,11 @@ int main(int argc, char* argv[]) {
 				std::string val = item.value().get<std::string>();
 				std::transform(val.begin(), val.end(), val.begin(), ::toupper);
 				if (val == "TRUE" || val == "YES" || val == "ON" || val == "Y" || val == "T") {
-					if (triggeredAcquisition) {
-						// TODO: make these not mutually exclusive! I.e. figure out pull-ups etc. on line 1
-						// debugMessage("Warning: Line 2 will be reconfigured for output exposure signal.", DEBUG_INFO);
-					}
 					// Configure line 2
 					pCam->LineSelector.SetValue(Spinnaker::LineSelector_Line2);
 					pCam->LineMode.SetValue(Spinnaker::LineMode_Output); // set line 2 to output
 					pCam->LineSource.SetValue(Spinnaker::LineSource_ExposureActive); // set line 2 source as exposure window
-					debugMessage("    Output of exposure signal activated", DEBUG_INFO);
+					debugMessage("    Output of exposure signal activated on line 2", DEBUG_INFO);
 				}
 			}
 		}
@@ -367,7 +383,7 @@ int main(int argc, char* argv[]) {
 	else if (fixedlen) {
 		timers.start(DTIMER_OVERALL);
 		timers.start(DTIMER_PREP);
-		record(saveTitle, recordingDuration);
+		record(saveTitle, recordingDuration, triggeredAcquisition);
 		timers.pause(DTIMER_CLEANUP);
 		timers.pause(DTIMER_OVERALL);
 		printDebugTimerInfo();
@@ -400,7 +416,7 @@ int main(int argc, char* argv[]) {
 			try {
 				timers.start(DTIMER_OVERALL);
 				timers.start(DTIMER_PREP);
-				record(saveTitle + "-" + titleIndex, MAX_DURATION);
+				record(saveTitle + "-" + titleIndex, MAX_DURATION, triggeredAcquisition);
 				timers.pause(DTIMER_CLEANUP);
 				timers.pause(DTIMER_OVERALL);
 				printDebugTimerInfo();

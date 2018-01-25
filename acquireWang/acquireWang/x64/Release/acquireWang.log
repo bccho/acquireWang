@@ -1,4 +1,6 @@
-﻿  Generating code
+﻿  main.cpp
+  previewwindow.cpp
+  Generating code
   Finished generating code
   acquireWang.vcxproj -> C:\code\acquireWang\acquireWang\x64\Release\acquireWang.exe
   acquireWang.vcxproj -> C:\code\acquireWang\acquireWang\x64\Release\acquireWang.pdb (Full PDB)

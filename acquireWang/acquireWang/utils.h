@@ -8,62 +8,60 @@ using json = nlohmann::json;
 
 // Read JSON configurations from file
 json readJSON(std::string filename) {
-	std::ifstream fParams(filename);
+	std::ifstream fConfig(filename);
 	json result;
-	if (fParams.good()) {
+	if (fConfig.good()) {
 		// Load from file
-		std::stringstream paramsBuffer;
-		paramsBuffer << fParams.rdbuf();
-		result = json::parse(paramsBuffer.str());
+		std::stringstream buf;
+		buf << fConfig.rdbuf();
+		result = json::parse(buf.str());
 	}
-	fParams.close();
+	fConfig.close();
 	return result;
 }
 
 // Read configurations
-std::map<std::string, size_t> readConfig() {
-	std::map<std::string, size_t> params;
+json readConfig() {
+	json config;
 	std::string config_filename = "config.json";
 
-	std::ifstream fParams(config_filename);
-	if (fParams.good()) {
-		// Load from file
-		std::stringstream paramsBuffer;
-		paramsBuffer << fParams.rdbuf();
-		auto parsed = nlohmann::json::parse(paramsBuffer.str());
-		params = parsed.get<std::map<std::string, size_t>>();
+	std::ifstream fConfig(config_filename);
+	if (fConfig.good()) {
+		debugMessage("Loading parameters from " + config_filename, DEBUG_HIDDEN_INFO);
 
-		debugMessage("Loaded parameters from " + config_filename, DEBUG_HIDDEN_INFO);
+		// Load from file
+		std::stringstream buf;
+		buf << fConfig.rdbuf();
+		config = json::parse(buf.str());
 	}
 	else {
 		/* Create JSON file with defaults */
 		// Video parameters
-		params["_frameChunkSize"] = 50;
-		params["_kinectXchunk"] = 32;
-		params["_kinectYchunk"] = 53;
-		params["_pgXchunk"] = 32;
-		params["_pgYchunk"] = 32;
-		params["_compression"] = 0;
+		config["_frameChunkSize"] = 50;
+		config["_kinectXchunk"] = 32;
+		config["_kinectYchunk"] = 53;
+		config["_pgXchunk"] = 32;
+		config["_pgYchunk"] = 32;
+		config["_compression"] = 0;
 
 		// Access parameters for efficient writing
-		params["_lz4_block_size"] = 1 << 30;
-		params["_mdc_nelmnts"] = 1024;
-		params["_rdcc_nslots"] = 32009; // prime number close to 32000
+		config["_lz4_block_size"] = 1 << 30;
+		config["_mdc_nelmnts"] = 1024;
+		config["_rdcc_nslots"] = 32009; // prime number close to 32000
 			//params["_rdcc_nslots"] = 3209; // prime number close to 3200
-		params["_rdcc_nbytes"] = 50 * 1024 * 1280 * 8;
-		params["_sievebufsize"] = 8388608;
+		config["_rdcc_nbytes"] = 50 * 1024 * 1280 * 8;
+		config["_sievebufsize"] = 8388608;
 
 		// Save
-		nlohmann::json j_map(params);
-		std::ofstream f2(config_filename);
-		f2 << j_map.dump(4);
-		f2.close();
+		std::ofstream fout(config_filename);
+		fout << config.dump(4);
+		fout.close();
 
 		debugMessage("Using default parameters (saved to " + config_filename + ")", DEBUG_INFO);
 	}
-	fParams.close();
+	fConfig.close();
 
-	return params;
+	return config;
 }
 
 // Utilities
